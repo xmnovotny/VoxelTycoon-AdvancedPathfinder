@@ -1,6 +1,6 @@
 ﻿using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Rails
 {
     public class RailSection: TrackSection<Rail, RailConnection>
     {

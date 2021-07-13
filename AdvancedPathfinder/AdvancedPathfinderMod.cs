@@ -1,4 +1,5 @@
-﻿using AdvancedPathfinder.UI;
+﻿using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.UI;
 using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Game.UI;

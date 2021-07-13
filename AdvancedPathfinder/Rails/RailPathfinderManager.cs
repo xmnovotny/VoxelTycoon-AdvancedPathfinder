@@ -1,11 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using AdvancedPathfinder.UI;
 using UnityEngine;
 using VoxelTycoon;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Rails
 {
     public class RailPathfinderManager: PathfinderManager<RailPathfinderManager, Rail, RailConnection, RailSection, RailPathfinderNode, RailPathfinderEdge>
     {
