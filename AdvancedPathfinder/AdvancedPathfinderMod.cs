@@ -1,5 +1,7 @@
-﻿using HarmonyLib;
+﻿using AdvancedPathfinder.UI;
+using HarmonyLib;
 using VoxelTycoon;
+using VoxelTycoon.Game.UI;
 using VoxelTycoon.Modding;
 using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
@@ -48,14 +50,33 @@ namespace AdvancedPathfinder
         private static void TrainPathfinder_FindImmediately_pof(VehiclePathfinder<TrackConnection, TrackPathNode, Train> __instance)
         {
             FileLog.Log("FindImmediately");
-        }
+        }*/
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Train), "TryFindPath")]
         private static void Train_TryFindPath_pof(Train __instance)
         {
-            FileLog.Log("TrainFind");
+            Manager<RailPathfinderManager>.Current?.Find();
         }
-  */      
+        
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(VehicleWindow), "Initialize")]
+        private static void VehicleWindow_Initialize_pof(Vehicle vehicle)
+        {
+            if (vehicle is Train train)
+            {
+                LazyManager<TrainPathHighlighter>.Current.ShowFor(train);
+            }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(VehicleWindow), "OnClose")]
+        private static void VehicleWindow_OnClose_pof(VehicleWindow __instance)
+        {
+            if (__instance.Vehicle is Train train)
+            {
+                LazyManager<TrainPathHighlighter>.Current.HideFor(train);
+            }
+        }
     }
 }

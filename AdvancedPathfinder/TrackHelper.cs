@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Buildings;
@@ -10,6 +11,7 @@ namespace AdvancedPathfinder
 {
     public static class TrackHelper
     {
+        
         public static void GetStartingConnections<TTrack, TTrackConnection>(HashSet<TTrackConnection> startingConnections)
             where TTrack : Track where TTrackConnection : TrackConnection
         {
@@ -29,5 +31,6 @@ namespace AdvancedPathfinder
                 }   
             }
         }
+
     }
 }

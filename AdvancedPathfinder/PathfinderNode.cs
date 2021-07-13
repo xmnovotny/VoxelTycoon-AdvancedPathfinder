@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using FibonacciHeap;
 using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
@@ -19,8 +20,14 @@ namespace AdvancedPathfinder
         private bool _initialized = false;
 
         public IReadOnlyCollection<TTrackConnection> InboundConnections => _inboundConnections;
+        public IReadOnlyCollection<TTrackConnection> OutboundConnections => _outboundConnections;
         public ImmutableList<TPathfinderEdge> Edges => _edges.ToImmutableList();
 
+        internal override IReadOnlyList<PathfinderEdgeBase> GetEdges()
+        {
+            return _edges;
+        }
+        
         internal virtual void Initialize(TTrackConnection inboundConnection, bool trackStart = false)
         {
             if (_initialized)
@@ -37,30 +44,33 @@ namespace AdvancedPathfinder
             }
             else
             {
-                if (inboundConnection.OuterConnectionCount == 0)
-                {
-                    throw new InvalidOperationException("No outer connection on nonstart connection");
-                }
-
                 foreach (TrackConnection conn in inboundConnection.OuterConnections)
                 {
                     _outboundConnections.Add((TTrackConnection) conn);
                 }
 
-                TrackConnection outConn = inboundConnection.OuterConnections[0];
-                foreach (TrackConnection conn in outConn.OuterConnections)
+                if (inboundConnection.OuterConnectionCount > 0)
                 {
-                    _inboundConnections.Add((TTrackConnection) conn);
+                    TrackConnection outConn = inboundConnection.OuterConnections[0];
+                    foreach (TrackConnection conn in outConn.OuterConnections)
+                    {
+                        _inboundConnections.Add((TTrackConnection) conn);
+                    }
+                }
+                else
+                {
+                    //end connection, add provided connection as only inbound
+                    _inboundConnections.Add(inboundConnection);
                 }
             }
         }
 
-        internal void FindEdges(ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder)
+        internal void FindEdges(ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder, INodeFinder<TTrackConnection> nodeFinder)
         {
             foreach (TTrackConnection connection in _outboundConnections)
             {
                 TPathfinderEdge edge = new() {Owner = this};
-                edge.Fill(connection, sectionFinder);
+                edge.Fill(connection, sectionFinder, nodeFinder);
                 _edges.Add(edge);
             }
         }

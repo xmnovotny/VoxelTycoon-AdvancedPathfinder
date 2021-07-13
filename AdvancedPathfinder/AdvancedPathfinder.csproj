@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <PackageReference Include="Cyotek.CircularBuffer" Version="1.1.0" />
-    <PackageReference Include="FibonacciHeap" Version="2.0.2" />
     <PackageReference Include="SharpZipLib" Version="1.3.2" />
   </ItemGroup>
 
@@ -89,6 +88,9 @@
     </Reference>
     <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestWWWModule.dll">
       <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
+    </Reference>
+    <Reference Include="FibonacciHeap, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\FibonacciHeap\FibonacciHeap\src\FibonacciHeap\bin\Debug\netstandard2.0\FibonacciHeap.dll</HintPath>
     </Reference>
   </ItemGroup>
 

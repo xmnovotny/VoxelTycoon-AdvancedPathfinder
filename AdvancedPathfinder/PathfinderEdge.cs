@@ -22,10 +22,16 @@ namespace AdvancedPathfinder
             _sections.Add((section, direction));
             Length += section.Length;
         }
-        
-        internal void Fill(TTrackConnection startConnection, ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder)
+
+        internal override float GetScore()
+        {
+            return Length;
+        }
+
+        internal void Fill(TTrackConnection startConnection, ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder, INodeFinder<TTrackConnection> nodeFinder)
         {
             TTrackConnection  currentConnection = startConnection;
+            NextNode = null;
             while (currentConnection != null)
             {
                 TTrackSection section = sectionFinder.FindSection(currentConnection);
@@ -36,6 +42,7 @@ namespace AdvancedPathfinder
                 TTrackConnection lastConn = section.GetEndConnection(direction);
                 if (lastConn.OuterConnectionCount != 1)
                 {
+                    NextNode = nodeFinder.FindNodeByInboundConn(lastConn);
                     //new node or end of the track
                     break;
                 }

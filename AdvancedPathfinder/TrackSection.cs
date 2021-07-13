@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using HarmonyLib;
+using JetBrains.Annotations;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 
@@ -14,7 +17,7 @@ namespace AdvancedPathfinder
 
         public TTrackConnection First { get; private set; }
         public TTrackConnection Last { get; private set; }
-        
+
         public TrackSection()
         {
         }
@@ -39,8 +42,12 @@ namespace AdvancedPathfinder
         {
             TrackList.Clear();
         }
-
-        internal bool Fill(TTrackConnection startConnection, HashSet<TTrack> processedTracks, HashSet<TTrackConnection> connectionsToProcess)
+        protected virtual bool IsNodeOnTheEnd(TTrackConnection connection, [CanBeNull] IReadOnlyCollection<TTrackConnection> stationStopsConnections)
+        {
+            return stationStopsConnections?.Contains(connection)==true || connection.OuterConnectionCount != 1;
+        }
+        
+        internal bool Fill(TTrackConnection startConnection,[CanBeNull] IReadOnlyCollection<TTrackConnection> stationStopsConnections, HashSet<TTrack> processedTracks, HashSet<TTrackConnection> connectionsToProcess, HashSet<TTrackConnection> foundNodesList)
         {
             if (startConnection.Track is not TTrack)
                 throw new ArgumentException("Connection track is not type of TTrack");
@@ -60,18 +67,33 @@ namespace AdvancedPathfinder
             First = startConnection;
             IsListReversed = !startConnection.IsStart;
             TTrackConnection current = startConnection;
+            bool isNodeAtStart = !foundNodesList.Contains(startConnection) && IsNodeOnTheEnd(startConnection, stationStopsConnections);
+            bool isNodeAtEnd = false;
             TTrackConnection currentEnd = null;
             while (true)
             {
                 currentEnd = (TTrackConnection) current.InnerConnection;
                 TTrack track = (TTrack) current.Track;
                 if (track == null || !track.IsBuilt)
-                    break;
-                processedTracks.Add(track);
-                ProcessTrack(track, current);
-                if (currentEnd.OuterConnectionCount != 1)
                 {
-                    //0 or more than one connection = end of the section
+                    FileLog.Log("Invalid track");
+                    return false;
+                }
+
+                if (!processedTracks.Add(track))
+                {
+                    FileLog.Log("Failed track");
+                    return false;
+                }
+                ProcessTrack(track, current);
+                if (IsNodeOnTheEnd(currentEnd, stationStopsConnections))
+                {
+                    if (currentEnd.Track == null)
+                    {
+                        FileLog.Log("End track is null");
+                    }
+                    //node at the end of the connection
+                    isNodeAtEnd = true;
                     for (int i = 0; i < currentEnd.OuterConnectionCount; i++)
                     {
                         connectionsToProcess.Add((TTrackConnection) currentEnd.OuterConnections[i]);
@@ -80,9 +102,13 @@ namespace AdvancedPathfinder
                 }
 
                 current = (TTrackConnection) currentEnd.OuterConnections[0];
-                if (current.OuterConnectionCount > 1)
+                if (IsNodeOnTheEnd(current, stationStopsConnections))
                 {
-                    //more than 1 connection on the next connection = end of the section
+                    for (int i = 0; i < currentEnd.OuterConnectionCount; i++)
+                    {
+                        connectionsToProcess.Add((TTrackConnection) currentEnd.OuterConnections[i]);
+                    }
+                    //node in opposite direction = end of the section
                     for (int i = 0; i < current.OuterConnectionCount; i++)
                     {
                         TTrackConnection conn = (TTrackConnection) current.OuterConnections[i];
@@ -96,7 +122,36 @@ namespace AdvancedPathfinder
             }
 
             Last = currentEnd;
-            return !Empty;
+            if (Empty) return false;
+
+            if (isNodeAtStart)
+            {
+                foundNodesList.Add(First);
+                if (First.Track == null)
+                {
+                    FileLog.Log("First.Track == null");
+                }
+
+                if (!TrackList.Contains((TTrack)First.Track))
+                {
+                    FileLog.Log("First.Track not in list");
+                }
+            }
+
+            if (isNodeAtEnd)
+            {
+                foundNodesList.Add(Last);
+                if (Last.Track == null)
+                {
+                    FileLog.Log("Last.Track == null");
+                }
+                if (!TrackList.Contains((TTrack)Last.Track))
+                {
+                    FileLog.Log("Last.Track not in list");
+                }
+            }
+
+            return true;
         }
     }
 }
