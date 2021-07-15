@@ -98,6 +98,9 @@
     <Compile Include="..\..\Utils\CSharp9Helper.cs">
       <Link>Content\Utils\CSharp9Helper.cs</Link>
     </Compile>
+    <Compile Include="..\..\Utils\SimpleLazyManager.cs">
+      <Link>Content\Utils\SimpleLazyManager.cs</Link>
+    </Compile>
     <Compile Include="..\..\Utils\XMNUtils.cs">
       <Link>Content\Utils\XMNUtils.cs</Link>
     </Compile>

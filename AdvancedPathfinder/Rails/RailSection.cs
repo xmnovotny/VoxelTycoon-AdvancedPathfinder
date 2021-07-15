@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
@@ -12,27 +13,52 @@ namespace AdvancedPathfinder.Rails
         private const float ClosedBlockPlatformMult = 10f;
         private readonly RailSectionData _data = new();
         private readonly Dictionary<RailBlock, float> _railBlocksLengths = new();
+        private float? _closedBlockLength;
 
         public RailSectionData Data => _data;
 
         public float GetClosedBlocksLength()
         {
+            if (_closedBlockLength.HasValue)
+                return _closedBlockLength.Value;
+            
             float result = 0f;
             foreach (KeyValuePair<RailBlock,float> pair in _railBlocksLengths)
             {
                 if (!pair.Key.IsOpen)
                 {
-                    result += pair.Value * (_data.HasPlatform ? ClosedBlockPlatformMult : ClosedBlockMult);
+                    result += CalculateCloseBlockLength(pair.Value);
                 }
             }
 
+            _closedBlockLength = result;
+
             return result;
         }
-        
+
+        internal override void OnSectionRemoved()
+        {
+            base.OnSectionRemoved();
+            var helper = SimpleLazyManager<RailBlockHelper>.Current;
+            foreach (RailBlock block in _railBlocksLengths.Keys)
+            {
+                helper.UnregisterBlockStateAction(block, OnBlockStateChange);
+            }
+        }
+
         protected override void FillSetup()
         {
             base.FillSetup();
             Data.Reset();
+        }
+
+        protected override void FinalizeFill()
+        {
+            var helper = SimpleLazyManager<RailBlockHelper>.Current;
+            foreach (RailBlock block in _railBlocksLengths.Keys)
+            {
+                helper.RegisterBlockStateAction(block, OnBlockStateChange);
+            }
         }
 
         protected override void ProcessTrack(Rail track, RailConnection startConnection)
@@ -67,6 +93,22 @@ namespace AdvancedPathfinder.Rails
                 _railBlocksLengths.AddFloatToDict(block1, startConnection.Length);
             }
         }
-        
+
+        private float CalculateCloseBlockLength(float length)
+        {
+            return length * (_data.HasPlatform ? ClosedBlockPlatformMult : ClosedBlockMult);
+        }
+
+        private void OnBlockStateChange(RailBlock block, bool oldIsOpen, bool newIsOpen)
+        {
+            if (_closedBlockLength.HasValue && _railBlocksLengths.TryGetValue(block, out float length))
+            {
+                float value = CalculateCloseBlockLength(length);
+                if (newIsOpen)
+                    _closedBlockLength -= value;
+                else
+                    _closedBlockLength += value;
+            }
+        }
     }
 }

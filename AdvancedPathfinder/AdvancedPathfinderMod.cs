@@ -10,6 +10,7 @@ using VoxelTycoon.Modding;
 using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using XMNUtils;
 using Logger = VoxelTycoon.Logger;
 
 namespace AdvancedPathfinder
@@ -71,8 +72,9 @@ namespace AdvancedPathfinder
                 bool result2 = manager.FindImmediately(__instance, (RailConnection) origin, target, result);
                 _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
                 _newMs += manager.ElapsedMilliseconds;
+                float blockUpdatesMs = SimpleLazyManager<RailBlockHelper>.Current.ElapsedMilliseconds;
                 FileLog.Log("Finding path, result={0}, in {1}ms (original was in {2}ms)".Format(result2.ToString(), manager.ElapsedMilliseconds.ToString("N2"), TrainPathfinder.Current.ElapsedMilliseconds.ToString("N2")));
-                FileLog.Log("Total original = {0}ms, new = {1}ms, ratio = {2}%".Format(_origMs.ToString("N0"), _newMs.ToString("N0"), (_origMs / _newMs * 100f).ToString("N1")));
+                FileLog.Log(string.Format("Total original = {0:N0}ms, new = {1:N0}ms, ratio = {2:N1}%, block updates = {3:N2}ms", (_origMs), _newMs+blockUpdatesMs, (_origMs / (_newMs+blockUpdatesMs) * 100f), blockUpdatesMs));
                 __result = result2;
             }
         }

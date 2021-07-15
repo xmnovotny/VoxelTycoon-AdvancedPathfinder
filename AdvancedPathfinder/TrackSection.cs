@@ -191,6 +191,9 @@ namespace AdvancedPathfinder
             ConnectionList.Clear();
             BackwardConnectionList.Clear();
         }
+        
+        protected virtual void FinalizeFill() {} 
+        
         protected virtual bool IsNodeOnTheEnd(TTrackConnection connection, [CanBeNull] IReadOnlyCollection<TTrackConnection> stationStopsConnections)
         {
             return stationStopsConnections?.Contains(connection)==true || connection.OuterConnectionCount != 1;
@@ -312,7 +315,10 @@ namespace AdvancedPathfinder
             }
 
             FillBackwardConnections();
+            FinalizeFill();
             return true;
         }
+
+        internal virtual void OnSectionRemoved() { }
     }
 }
