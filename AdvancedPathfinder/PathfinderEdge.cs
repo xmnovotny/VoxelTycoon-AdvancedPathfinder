@@ -12,18 +12,26 @@ namespace AdvancedPathfinder
         where TTrackSection : TrackSection<TTrack, TTrackConnection>
     {
         public PathfinderNodeBase Owner { get; init; }
-        public ImmutableList<(TTrackSection section, PathDirection direction)> Sections => _sections.ToImmutableList();
+        public IReadOnlyList<(TTrackSection section, PathDirection direction)> Sections => _sections;
         public float Length { get; private set; }
 
         private readonly List<(TTrackSection section, PathDirection direction)> _sections = new ();
 
+        public void GetConnections(List<TrackConnection> connections)
+        {
+            foreach ((TTrackSection section, PathDirection direction) in _sections)
+            {
+                section.GetConnectionsInDirection(direction, connections);
+            }            
+        }
+        
         protected virtual void AddSection(TTrackSection section, PathDirection direction)
         {
             _sections.Add((section, direction));
             Length += section.Length;
         }
 
-        internal override float GetScore()
+        internal override float GetScore(object edgeSettings)
         {
             return Length;
         }
@@ -32,6 +40,8 @@ namespace AdvancedPathfinder
         {
             TTrackConnection  currentConnection = startConnection;
             NextNode = null;
+            TTrackSection lastSection = null;
+            PathDirection lastDirection = default;
             while (currentConnection != null)
             {
                 TTrackSection section = sectionFinder.FindSection(currentConnection);
@@ -39,16 +49,34 @@ namespace AdvancedPathfinder
                     section.First == currentConnection ? PathDirection.Forward : section.Last == currentConnection ? PathDirection.Backward : throw new InvalidOperationException("connection is not on the any end of the section");
 
                 AddSection(section, direction);
-                TTrackConnection lastConn = section.GetEndConnection(direction);
-                if (lastConn.OuterConnectionCount != 1)
+                if (lastSection != null)
                 {
-                    NextNode = nodeFinder.FindNodeByInboundConn(lastConn);
+                    lastSection.SetNextSection(section, direction, lastDirection);
+                }
+                TTrackConnection lastConn = section.GetEndConnection(direction);
+                if ((NextNode = nodeFinder.FindNodeByInboundConn(lastConn)) != null)
+                {
+                    SetNextNodeInSections();
+
                     //new node or end of the track
                     break;
                 }
 
+                lastSection = section;
+                lastDirection = direction;
                 currentConnection = (TTrackConnection)lastConn.OuterConnections[0];
             }
+            UpdateSections();
         }
+
+        private void SetNextNodeInSections()
+        {
+            foreach ((TTrackSection section, PathDirection direction) in _sections)
+            {
+                section.SetNextNode(NextNode, direction);
+            }
+        }
+
+        protected abstract void UpdateSections();
     }
 }

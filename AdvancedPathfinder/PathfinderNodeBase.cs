@@ -7,11 +7,14 @@ namespace AdvancedPathfinder
     public abstract class PathfinderNodeBase
     {
         internal abstract IReadOnlyList<PathfinderEdgeBase> GetEdges();
-        [CanBeNull] internal PathfinderNodeBase Previous = null;
-        private FibonacciHeapNode<PathfinderNodeBase, float> _heapNode = null;
+        [CanBeNull] internal PathfinderNodeBase PreviousBestNode { get; set; } = null;
+        [CanBeNull] internal PathfinderEdgeBase PreviousBestEdge { get; set; } = null;
+        private FibonacciHeapNode<PathfinderNodeBase, float> _heapNode;
+        public float? LastPathLength => _heapNode?.Key < float.MaxValue ? _heapNode?.Key : null;
+        public bool IsReachable { get; internal set; } = false;  //if false, there is no inbound node that is passable in forward direction
 
         /**
-         * Returns new or reused reset heap node with maximum value
+         * Returns new or reused reset heap node with maximum value and clears best previous nodes info
          */
         internal FibonacciHeapNode<PathfinderNodeBase, float> GetInitializedHeapNode()
         {
@@ -24,6 +27,9 @@ namespace AdvancedPathfinder
                 _heapNode.Reset();
                 _heapNode.Key = float.MaxValue;
             }
+
+            PreviousBestEdge = null;
+            PreviousBestNode = null;
             return _heapNode;
         }
 

@@ -1,12 +1,16 @@
-﻿using AdvancedPathfinder.Rails;
+﻿using System.Collections.Generic;
+using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 using VoxelTycoon;
 using VoxelTycoon.Game.UI;
 using VoxelTycoon.Modding;
 using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using Logger = VoxelTycoon.Logger;
 
 namespace AdvancedPathfinder
 {
@@ -53,11 +57,24 @@ namespace AdvancedPathfinder
             FileLog.Log("FindImmediately");
         }*/
 
+        private static double _origMs = 0;
+        private static double _newMs = 0;
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Train), "TryFindPath")]
-        private static void Train_TryFindPath_pof(Train __instance)
+        private static void Train_TryFindPath_pof(Train __instance, ref bool __result, TrackConnection origin, IVehicleDestination target, List<TrackConnection> result)
         {
-            Manager<RailPathfinderManager>.Current?.Find();
+            RailPathfinderManager manager = Manager<RailPathfinderManager>.Current;
+            if (manager != null)
+            {
+                //List<TrackConnection> resultList = new();
+                result.Clear();
+                bool result2 = manager.FindImmediately(__instance, (RailConnection) origin, target, result);
+                _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
+                _newMs += manager.ElapsedMilliseconds;
+                FileLog.Log("Finding path, result={0}, in {1}ms (original was in {2}ms)".Format(result2.ToString(), manager.ElapsedMilliseconds.ToString("N2"), TrainPathfinder.Current.ElapsedMilliseconds.ToString("N2")));
+                FileLog.Log("Total original = {0}ms, new = {1}ms, ratio = {2}%".Format(_origMs.ToString("N0"), _newMs.ToString("N0"), (_origMs / _newMs * 100f).ToString("N1")));
+                __result = result2;
+            }
         }
         
         [HarmonyPostfix]

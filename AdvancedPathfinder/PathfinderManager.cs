@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Linq;
+using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.UI;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
 using VoxelTycoon;
 using VoxelTycoon.Buildings;
+using VoxelTycoon.Game.UI;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 
@@ -24,19 +28,52 @@ namespace AdvancedPathfinder
         where TPathfinderNode: PathfinderNode<TTrack, TTrackConnection, TTrackSection, TPathfinderEdge>, new()
         where TPathfinderEdge : PathfinderEdge<TTrack, TTrackConnection, TTrackSection>, new()
     {
+        private readonly Color[] _colors = 
+        {
+            Color.blue,
+            Color.cyan,
+            Color.magenta,
+            Color.green,
+            Color.red,
+            Color.yellow
+        };
+        
         private readonly List<TTrackSection> _sections = new();
         private readonly List<TPathfinderNode> _nodes = new();
+        private readonly List<TPathfinderNode> _reachableNodes = new(); //list of reachable nodes
 
         private readonly Dictionary<TTrack, TTrackSection> _trackToSection = new();
         /** inbound connection to node */
         private readonly Dictionary<TTrackConnection, TPathfinderNode> _connectionToNode = new();
+        [CanBeNull]
+        private Pathfinder<TPathfinderNode> _pathfinder;
+        private Pathfinder<TPathfinderNode> Pathfinder { get => _pathfinder ??= new Pathfinder<TPathfinderNode>(); }
+
+        private readonly HashSet<Highlighter> _highlighters = new();
+        public float ElapsedMilliseconds { get; private set; }
+
+        [CanBeNull]
+        public TTrackSection FindSection(TTrackConnection connection)
+        {
+            return _trackToSection.GetValueOrDefault((TTrack) connection.Track);
+        }
+
+        [CanBeNull]
+        public TPathfinderNode FindNearestNode(TTrackConnection connection)
+        {
+            return (TPathfinderNode) FindSection(connection)?.FindNextNode(connection);
+        }
 
         protected virtual void ProcessFilledSection(TTrackSection section)
         {
-            ImmutableUniqueList<TTrack> tracks = section.GetTrackList();
-            for (int i = 0; i < tracks.Count; i++)
+            ImmutableUniqueList<TTrackConnection> connections = section.GetConnectionList();
+            for (int i = 0; i < connections.Count; i++)
             {
-                _trackToSection.Add(tracks[i], section);
+                if (connections[i].Track == null)
+                {
+                    throw new InvalidOperationException("Connection has no track");
+                }
+                _trackToSection.Add((TTrack)connections[i].Track, section);
             }
         }
 
@@ -50,9 +87,90 @@ namespace AdvancedPathfinder
         {
         }
 
-        protected virtual void HighlightConnection(TTrackConnection connection, bool halfConnection, Color color)
+        protected virtual Highlighter HighlightConnection(TTrackConnection connection, bool halfConnection, Color color)
         {
-            
+            return null;
+        }
+
+        protected virtual IReadOnlyCollection<TPathfinderNode> GetNodesList(object edgeSettings)
+        {
+            return _reachableNodes;
+        }
+
+        private HashSet<TPathfinderNode> ConvertDestination(IVehicleDestination destination)
+        {
+            HashSet<TPathfinderNode> result = new HashSet<TPathfinderNode>();
+            foreach (TrackConnection connection in destination.Stops)
+            {
+                TPathfinderNode node = (TPathfinderNode) FindNodeByInboundConn(connection.InnerConnection as TTrackConnection);
+                if (node == null)
+                    throw new ArgumentException("Cannot convert target to node");
+                result.Add(node);
+            }
+
+            return result;
+        }
+
+        private void FillFoundedPath(TPathfinderNode originNode, TPathfinderNode targetNode, List<TrackConnection> result)
+        {
+            TPathfinderNode node = targetNode;
+            List<TPathfinderEdge> edges = new();
+            while (node != originNode)
+            {
+                if (node == null || node.PreviousBestEdge == null)
+                {
+                    throw new InvalidOperationException("Cannot reconstruct founded path");
+                }
+                edges.Add(node.PreviousBestEdge);
+                node = (TPathfinderNode) node.PreviousBestNode;
+            }
+
+            for (int i = edges.Count - 1; i >= 0; i--)
+            {
+                edges[i].GetConnections(result);
+            }
+        }
+        
+        protected bool FindPath([NotNull] TTrackConnection origin, [NotNull] IVehicleDestination target,
+            object edgeSettings, List<TrackConnection> result, IReadOnlyCollection<TPathfinderNode> nodesList = null)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
+            TPathfinderNode originNode = FindNearestNode(origin);
+            if (originNode == null)
+                throw new InvalidOperationException("Starting path node not found.");
+            HashSet<TPathfinderNode> targetNodes = ConvertDestination(target);
+            if (nodesList == null)
+                nodesList = GetNodesList(edgeSettings);
+            if (nodesList == null)
+                throw new ArgumentException("Cannot get node list");
+            TPathfinderNode endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings);
+            if (result != null && endNode != null)
+            {
+                FindSection(origin)?.GetConnectionsToNextNode(origin, result);
+                FillFoundedPath(originNode, endNode, result);
+            }
+            sw.Stop();
+            ElapsedMilliseconds = sw.ElapsedTicks / 10000f;
+
+            if (endNode == null)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        protected virtual void ProcessNodeToSubLists(TPathfinderNode node)
+        {
+            if (node.IsReachable)
+                _reachableNodes.Add(node);
+        }
+        private void FillNodeSubLists()
+        {
+            foreach (TPathfinderNode node in _nodes)
+            {
+                ProcessNodeToSubLists(node);
+            }
         }
 
         private HashSet<TTrack> GetNonProcessedTracks()
@@ -74,8 +192,13 @@ namespace AdvancedPathfinder
             IReadOnlyCollection<TTrackConnection> stationStopsConnections = GetStationStopsConnections();
             TrackHelper.GetStartingConnections<TTrack, TTrackConnection>(connectionsToProcess);
             TTrackSection section = null;
+            int count = 0;
+            long ticks = 0;
+            Stopwatch sw = new Stopwatch();
             while (connectionsToProcess.Count > 0)
             {
+                sw.Restart();
+                count++;
                 TTrackConnection currentConn = connectionsToProcess.First();
                 connectionsToProcess.Remove(currentConn);
                 if (section == null) //for reusing created and unfilled section from previous cycle
@@ -84,12 +207,14 @@ namespace AdvancedPathfinder
                 }
                 if (section.Fill(currentConn, stationStopsConnections, processedTracks, connectionsToProcess, foundNodesConnections))
                 {
+                    sw.Stop();
                     _sections.Add(section);
                     ProcessFilledSection(section);
                     section = null;
                 }
+                ticks += sw.ElapsedTicks;
             }
-            FileLog.Log($"Found {_sections.Count} sections");
+            FileLog.Log($"Found {_sections.Count} sections, iterations: {count}, average per iteration: {(count > 0 ? (ticks / count / 10000) : 0)}");
 
             HashSet<TTrack> nonProcessedTracks = GetNonProcessedTracks();
             
@@ -144,21 +269,87 @@ namespace AdvancedPathfinder
                 node.FindEdges(this, this);
                 sumEdges += node.Edges.Count;
             }
+            
             FileLog.Log($"Found {sumEdges} edges");
         }
 
+        private void HighlightNode(TPathfinderNode node, Color color)
+        {
+            foreach (TTrackConnection connection in node.InboundConnections)
+            {
+                _highlighters.Add(HighlightConnection(connection, true, color));
+            }
+        }
+        
         private void HighlightNodes()
         {
+            HideHighlighters();
             foreach (TPathfinderNode node in _nodes)
             {
-                foreach (TTrackConnection connection in node.InboundConnections)
-                {
-                    HighlightConnection(connection, true, Color.green.WithAlpha(0.25f));
-                }
+                HighlightNode(node, Color.green.WithAlpha(0.25f));
             }
         }
 
-        protected override void OnInitialize()
+        private void HighlightLastVisitedNodes()
+        {
+            HideHighlighters();
+            foreach (TPathfinderNode node in _nodes)
+            {
+                if (node.LastPathLength == null)
+                    continue;
+                HighlightNode(node, Color.green.WithAlpha(0.4f));
+            }
+        }
+
+        private void HideHighlighters()
+        {
+            foreach (Highlighter highlighter in _highlighters)
+            {
+                highlighter.gameObject.SetActive(false);
+            }
+            _highlighters.Clear();
+        }
+
+        private void HighlightSection(TTrackSection section, Color color)
+        {
+            List<TrackConnection> connections = new();
+            section.GetConnectionsInDirection(PathDirection.Backward, connections);
+            foreach (TrackConnection connection in connections)
+            {
+                _highlighters.Add(HighlightConnection((TTrackConnection)connection, false, color));
+            }
+        }
+
+        private void HighlightSections()
+        {
+            HideHighlighters();
+            int idx = 0;
+            foreach (TTrackSection section in _sections)
+            {
+                Color color = _colors[idx].WithAlpha(0.4f);
+                HighlightSection(section, color);
+                idx = (idx + 1) % _colors.Length;
+            }
+        }
+
+        private void HighlightEdge(TPathfinderEdge edge, Color color)
+        {
+            foreach ((TTrackSection section, PathDirection direction) in edge.Sections)
+            {
+                HighlightSection(section, color);
+            }
+        }
+
+        public void HighlightConnections(List<TrackConnection> connections)
+        {
+            HideHighlighters();
+            foreach (TrackConnection connection in connections)
+            {
+                _highlighters.Add(HighlightConnection((TTrackConnection) connection, false, Color.green.WithAlpha(0.5f)));
+            }
+        }
+
+        private void BuildGraph()
         {
             try
             {
@@ -176,25 +367,22 @@ namespace AdvancedPathfinder
 
                 sw.Restart();
                 FindEdges();
+                FillNodeSubLists();
                 sw.Stop();
                 FileLog.Log("Find edges={0}".Format(sw.Elapsed));
 
-                Pathfinder pf = new();
                 sw.Restart();
-                pf.Initialize(_nodes[0], _nodes);
-                Stopwatch sw2 = Stopwatch.StartNew();
-                pf.Calculate();
-                sw2.Stop();
+                Pathfinder.FindAll(_nodes[0], _reachableNodes, new RailEdgeSettings());
                 sw.Stop();
-                FileLog.Log("Find paths all={0} ms".Format(sw.ElapsedTicks / 10000f));
-                FileLog.Log("Find paths no initialization={0} ms".Format(sw2.ElapsedTicks / 10000f));
+                FileLog.Log("Find paths={0} ms".Format(sw.ElapsedTicks / 10000f));
                 List<string> distances = new();
-                foreach ((PathfinderNodeBase node, float distance) in pf.GetDistances())
+                foreach ((PathfinderNodeBase node, float distance) in Pathfinder.GetDistances())
                 {
                     distances.Add(distance.ToString("N1"));
                 }
 
                 FileLog.Log("Distances: " + distances.JoinToString("; "));
+//                HighlightSections();
             }
             catch (Exception e)
             {
@@ -203,29 +391,51 @@ namespace AdvancedPathfinder
             }
         }
 
+        protected override void OnInitialize()
+        {
+            BuildGraph();
+        }
+
+/*        private int _lastNodeIndex = 0;
+        private int _lastEdgeIndex = 0;
+        private int _lastColorIndex = 0;
+        protected override void OnUpdate()
+        {
+            if (TimeHelper.OncePerTime(3f))
+            {
+                HideHighlighters();
+                TPathfinderNode node = _nodes[_lastNodeIndex];
+                Color color = _colors[_lastColorIndex++];
+                HighlightNode(node, color);
+                if (node.Edges.Count > 0)
+                {
+                    TPathfinderEdge edge = node.Edges[_lastEdgeIndex++];
+                    HighlightEdge(edge, color.WithAlpha(0.4f));
+                    HighlightNode((TPathfinderNode) edge.NextNode, color.GetOppositeColor());
+                }
+
+                if (_lastEdgeIndex >= node.Edges.Count)
+                {
+                    _lastEdgeIndex = 0;
+                    _lastNodeIndex = (_lastNodeIndex + 1) % _nodes.Count;
+                }
+
+                _lastColorIndex %= _colors.Length;
+            }
+        }*/
+
         public void Find()
         {
             FileLog.Log("Find");
-            Pathfinder pf = new();
             Stopwatch sw = Stopwatch.StartNew();
-            pf.Initialize(_nodes[0], _nodes);
-            Stopwatch sw2 = Stopwatch.StartNew();
-            pf.Calculate();
-            sw2.Stop();
+            Pathfinder.FindAll(_nodes.Random(), _reachableNodes, new RailEdgeSettings());
             sw.Stop();
-            FileLog.Log("Find paths all={0} ms".Format(sw.ElapsedTicks / 10000f));
-            FileLog.Log("Find paths no initialization={0} ms".Format(sw2.ElapsedTicks / 10000f));
-        }
-
-        [CanBeNull]
-        public TTrackSection FindSection(TTrackConnection connection)
-        {
-            return _trackToSection.GetValueOrDefault((TTrack) connection.Track);
+            FileLog.Log("Find paths={0} ms".Format(sw.ElapsedTicks / 10000f));
         }
 
         public PathfinderNodeBase FindNodeByInboundConn(TTrackConnection connection)
         {
-            return _connectionToNode.GetValueOrDefault(connection);
+            return connection != null ? _connectionToNode.GetValueOrDefault(connection) : null;
         }
         
  /*       [HarmonyPostfix]

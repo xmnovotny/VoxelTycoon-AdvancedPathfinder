@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FibonacciHeap;
 using HarmonyLib;
+using JetBrains.Annotations;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 
@@ -22,6 +23,10 @@ namespace AdvancedPathfinder
         public IReadOnlyCollection<TTrackConnection> InboundConnections => _inboundConnections;
         public IReadOnlyCollection<TTrackConnection> OutboundConnections => _outboundConnections;
         public ImmutableList<TPathfinderEdge> Edges => _edges.ToImmutableList();
+        [CanBeNull] 
+        internal new PathfinderNode<TTrack, TTrackConnection, TTrackSection, TPathfinderEdge> PreviousBestNode => (PathfinderNode<TTrack, TTrackConnection, TTrackSection, TPathfinderEdge>) base.PreviousBestNode;
+        [CanBeNull] 
+        internal new TPathfinderEdge PreviousBestEdge => (TPathfinderEdge) base.PreviousBestEdge;
 
         internal override IReadOnlyList<PathfinderEdgeBase> GetEdges()
         {
@@ -72,7 +77,13 @@ namespace AdvancedPathfinder
                 TPathfinderEdge edge = new() {Owner = this};
                 edge.Fill(connection, sectionFinder, nodeFinder);
                 _edges.Add(edge);
+                ProcessNewEdge(edge);
             }
+        }
+
+        protected virtual void ProcessNewEdge(TPathfinderEdge edge)
+        {
+            edge.NextNode.IsReachable = true;
         }
     }
 }
