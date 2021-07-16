@@ -37,14 +37,15 @@ namespace AdvancedPathfinder.PathSignals
 
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
-            FileLog.Log($"ReleaseSegmentStart, block: {GetHashCode():X}");
+//            FileLog.Log($"ReleaseSegmentStart, block: {GetHashCode():X}");
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList)) 
                 return;
             
             if (reservedList.Remove(rail))
             {
-                FileLog.Log($"ReleaseSegmentSuccess, block: {GetHashCode():X}");
+//                FileLog.Log($"ReleaseSegmentSuccess, block: {GetHashCode():X}");
                 ReleaseRailSegmentInternal(rail);
+                ReleaseInboundSignal(train, rail);
             }
 
             if (reservedList.Count == 0)

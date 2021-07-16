@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using MonoMod.Utils;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using XMNUtils;
 
 namespace AdvancedPathfinder.PathSignals
 {
@@ -35,6 +36,22 @@ namespace AdvancedPathfinder.PathSignals
                 throw new InvalidOperationException("Signal isn't in the inbound signal list");
 
             return data;
+        }
+
+        protected void ReleaseInboundSignal(Train train, Rail rail)
+        {
+            if (rail.SignalCount > 0)
+            {
+                for (int i = 0; i <= 1; i++)
+                {
+                    RailSignal signal = rail.GetConnection(i).Signal;
+                    if (signal == null || !InboundSignals.TryGetValue(signal, out PathSignalData signalData))
+                        continue;
+                        
+                    if (signalData.ReservedForTrain == train)
+                        signalData.ReservedForTrain = null;
+                }
+            }
         }
 
         internal abstract void ReleaseRailSegment(Train train, Rail rail);

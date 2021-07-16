@@ -69,7 +69,7 @@ namespace AdvancedPathfinder.PathSignals
                 
                 PathRailBlockData data = GetOrCreateRailBlockData(block);
                 data.InboundSignals.Add(signal, null);
-                RailSignal oppositeSignal = signal.Connection.Signal; 
+                RailSignal oppositeSignal = signal.Connection.InnerConnection.Signal; 
                 if (oppositeSignal != null)
                 {
                     data.OutboundSignals.Add(oppositeSignal);
@@ -233,12 +233,25 @@ namespace AdvancedPathfinder.PathSignals
 
         private void PathShrinkingRear(PathCollection path, int newRearIndex)
         {
+            if (path.RearIndex >= newRearIndex) 
+                return;
+            PathShrinking(path, path.RearIndex, newRearIndex-1);            
+        }
+
+        private void PathShrinkingFront(PathCollection path, int newFrontIndex)
+        {
+            if (path.FrontIndex <= newFrontIndex) 
+                return;
+            PathShrinking(path, newFrontIndex+1, path.FrontIndex);            
+        }
+        
+        private void PathShrinking(PathCollection path, int from, int to)  //indexes from and to are inclusive 
+        {
             if (!_pathToTrain.TryGetValue(path, out Train train)) 
                 return;
-            
             bool changed = false;
             RailBlockData currBlockData = null;
-            for (int index = path.RearIndex; index < newRearIndex; index++)
+            for (int index = from; index <= to; index++)
             {
                 changed = true;
                 RailConnection currConnection = (RailConnection) path[index];
@@ -247,6 +260,13 @@ namespace AdvancedPathfinder.PathSignals
                     currBlockData = GetBlockData(currConnection.Block);
                 }
                 currBlockData?.ReleaseRailSegment(train, currConnection.Track);
+
+                currConnection = currConnection.InnerConnection;
+                if (currBlockData?.Block != currConnection.Block)
+                {
+                    currBlockData = GetBlockData(currConnection.Block);
+                    currBlockData.ReleaseRailSegment(train, currConnection.Track);
+                }
             }
             if (changed)
                 HighlightReservedPaths();
@@ -393,6 +413,13 @@ namespace AdvancedPathfinder.PathSignals
             Current?.PathShrinkingRear(__instance, newRearIndex);
         }
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PathCollection), "ShrinkFront")]
+        // ReSharper disable once InconsistentNaming
+        private static void PathCollection_ShrinkFront_prf(PathCollection __instance, int newFrontIndex)
+        {
+            Current?.PathShrinkingFront(__instance, newFrontIndex);
+        }
         #endregion 
 
         #endregion
