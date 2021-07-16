@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using JetBrains.Annotations;
 using VoxelTycoon.Tracks.Rails;
 
@@ -41,7 +42,7 @@ namespace AdvancedPathfinder.PathSignals
 
         public void TrainPassedSignal(Train train)
         {
-            if (ReservedForTrain == train)
+            if (_reservedForTrain == train)
                 ReservedForTrain = null;
         }
 

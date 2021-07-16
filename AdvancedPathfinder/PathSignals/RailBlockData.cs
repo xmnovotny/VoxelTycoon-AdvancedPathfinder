@@ -36,5 +36,7 @@ namespace AdvancedPathfinder.PathSignals
 
             return data;
         }
+
+        internal abstract void ReleaseRailSegment(Train train, Rail rail);
     }
 }

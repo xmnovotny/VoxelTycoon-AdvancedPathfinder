@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
 using JetBrains.Annotations;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
@@ -18,11 +19,12 @@ namespace AdvancedPathfinder.PathSignals
         private int _lastPathIndex = 0;
         private RailSignal _lastEndSignal = null;
 
-        private readonly Dictionary<Train, (PooledList<Rail> rails, Rail lastPathRail)> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
-        private readonly Dictionary<Train, PooledList<Rail>> _reservedTrainPath = new(); //only rails in train path, not linked rails
+        private readonly Dictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
+        private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedTrainPath = new(); //only rails in train path, not linked rails
 
         internal IReadOnlyDictionary<Rail, int> BlockedLinkedRails => _blockedLinkedRails;
         internal IReadOnlyDictionary<Rail, int> BlockedRails => _blockedRails;
+        internal IReadOnlyDictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> ReservedBeyondPath => _reservedBeyondPath; //only rails in possible path, not linked rails
 
         public PathRailBlockData([NotNull] RailBlock block): base(block)
         {
@@ -33,12 +35,47 @@ namespace AdvancedPathfinder.PathSignals
             return new (Block, InboundSignals);
         }
 
+        internal override void ReleaseRailSegment(Train train, Rail rail)
+        {
+            FileLog.Log($"ReleaseSegmentStart, block: {GetHashCode():X}");
+            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList)) 
+                return;
+            
+            if (reservedList.Remove(rail))
+            {
+                FileLog.Log($"ReleaseSegmentSuccess, block: {GetHashCode():X}");
+                ReleaseRailSegmentInternal(rail);
+            }
+
+            if (reservedList.Count == 0)
+            {
+                _reservedTrainPath.Remove(train);
+                reservedList.Dispose();
+                ReleaseBeyondPath(train);
+            }
+        }
+
+        internal void ReleaseBeyondPath(Train train)
+        {
+            if (!_reservedBeyondPath.TryGetValue(train, out (PooledHashSet<Rail> rails, Rail lastPathRail) data))
+                return;
+            
+            foreach (Rail rail in data.rails)
+            {
+                ReleaseRailSegmentInternal(rail);
+            }
+
+            _reservedBeyondPath.Remove(train);
+            data.rails.Dispose();
+        }
 
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex)
         {
+            FileLog.Log($"TryReservePath: {GetHashCode():X}");
             PathSignalData startSignalData = GetAndTestStartSignal(path, startIndex);
             if (startSignalData.IsChainSignal)
             {
+                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
                 using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
                 if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                     return false;
@@ -57,10 +94,19 @@ namespace AdvancedPathfinder.PathSignals
 
             return TryReserveOwnPath(train, path, startIndex, startSignalData);
         }
-        
+
+        private void ReleaseRailSegmentInternal(Rail rail)
+        {
+            _blockedRails.SubIntFromDict(rail, 1, 0);
+            for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
+            {
+                _blockedLinkedRails.SubIntFromDict(rail.GetLinkedRail(i), 1, 0);
+            }
+        }
         
         private bool TryReserveOwnPath([NotNull] Train train, [NotNull] PathCollection path, int startIndex, PathSignalData startSignalData)
         {
+            FileLog.Log($"TryReserveOwnPath: {GetHashCode():X}");
             using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
             if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                 return false;
@@ -91,29 +137,26 @@ namespace AdvancedPathfinder.PathSignals
 
         private void ReserveOwnPathInternal(Train train, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railsToBlock, PathSignalData startSignal)
         {
+            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
             Rail lastRail = null;
-            PooledList<Rail> beyondRails = null;
-            PooledList<Rail> trainRails = null;
-            if (_reservedTrainPath.ContainsKey(train))
-            {
-                //throw new InvalidOperationException("Already reserved path for the train");
-                trainRails = _reservedTrainPath[train];
-                _reservedTrainPath.Remove(train);
-            }
-            else
-            {
-                trainRails = PooledList<Rail>.Take();
-            }
+            PooledHashSet<Rail> beyondRails = null;
+            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))
+                trainRails = PooledHashSet<Rail>.Take();
 
             try
             {
                 foreach ((Rail rail, bool isLinkedRail, bool beyondPath) in railsToBlock)
                 {
-                    if (beyondPath == false)
+                    if (!beyondPath)
                     {
                         lastRail = rail;
                         if (!isLinkedRail)
-                            trainRails.Add(rail);
+                        {
+                            if (!trainRails.Add(rail))
+                            {
+                                throw new InvalidOperationException("Already reserved segment");
+                            }
+                        }
                     }
                     else
                     {
@@ -121,7 +164,7 @@ namespace AdvancedPathfinder.PathSignals
                         {
                             if (_reservedBeyondPath.ContainsKey(train))
                                 throw new InvalidOperationException("Already defined beyond rail path for the train");
-                            beyondRails = PooledList<Rail>.Take();
+                            beyondRails = PooledHashSet<Rail>.Take();
                         }
 
                         if (!isLinkedRail)
@@ -135,18 +178,19 @@ namespace AdvancedPathfinder.PathSignals
 
                 if (beyondRails != null)
                 {
+                    FileLog.Log("FoundBeyondPath");
                     _reservedBeyondPath.Add(train, (beyondRails, lastRail));
                 }
-                _reservedTrainPath.Add(train, trainRails);
+                _reservedTrainPath[train] = trainRails;
                 startSignal.ReservedForTrain = train;
             }
             catch (Exception e) when (ExceptionFault.FaultBlock(e, delegate
             {
-                trainRails?.Dispose();
+                if (trainRails != null && !_reservedTrainPath.ContainsKey(train))
+                    trainRails?.Dispose();
                 beyondRails?.Dispose();
             }))
-            {
-            }
+            {}
         }
         
         private IEnumerable<(Rail rail, bool isLinkedRail, bool beyondPath)> AffectedRailsEnum(PathCollection path, int startIndex)
@@ -155,10 +199,14 @@ namespace AdvancedPathfinder.PathSignals
             _lastPathIndex = index;
             _lastEndSignal = null;
             RailConnection connection = null;
+            Rail lastRail = null;
             while (index <= path.FrontIndex)
             {
                 connection = (RailConnection) path[index];
                 Rail rail = connection.Track;
+                if (rail == lastRail)
+                    FileLog.Log("LastRail = rail");
+                lastRail = rail;
                 if (connection.Block != Block)
                     throw new InvalidOperationException("Connection is from another block");
                 yield return (rail, false, false);

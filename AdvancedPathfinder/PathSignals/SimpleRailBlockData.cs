@@ -26,5 +26,11 @@ namespace AdvancedPathfinder.PathSignals
             startSignalData.ReservedForTrain = train;
             return true;
         }
+
+        internal override void ReleaseRailSegment(Train train, Rail rail)
+        {
+            if (Block.Value == 0)
+                IsReserved = false;
+        }
     }
 }

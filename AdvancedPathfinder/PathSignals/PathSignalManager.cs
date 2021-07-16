@@ -19,6 +19,8 @@ namespace AdvancedPathfinder.PathSignals
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
+        private readonly Dictionary<Train, RailSignal> _passedSignals = new();  //for delay of passing signal 
+        private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
 
         public RailSignalState GetSignalState(RailSignal signal)
         {
@@ -48,6 +50,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainPassedSignal(Train train, RailSignal signal)
         {
+            FileLog.Log("Train passed signal");
             if (!_pathSignals.TryGetValue(signal, out PathSignalData data))
                 throw new InvalidOperationException("No data for signal.");
             data.TrainPassedSignal(train);
@@ -184,6 +187,7 @@ namespace AdvancedPathfinder.PathSignals
         
         private bool IsSignalOpenForTrain(RailSignal signal, Train train, PathCollection path)
         {
+            _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
             if (signalData.ReservedForTrain == train)
                 return true;
@@ -202,6 +206,51 @@ namespace AdvancedPathfinder.PathSignals
             HighlightReservedPaths();
             return result;
         }
+
+        private void TrainConnectionReached(Train train, TrackConnection connection)
+        {
+            if (_passedSignals.TryGetValue(train, out RailSignal signal))
+            {
+                TrainPassedSignal(train, signal);
+                _passedSignals.Remove(train);
+            }
+            RailConnection railConn = (RailConnection) connection;
+            if (railConn.Signal != null)
+            {
+                _passedSignals.Add(train, railConn.Signal);
+            }
+        }
+
+        private RailBlockData GetBlockData(RailBlock block)
+        {
+            if (!_railBlocks.TryGetValue(block, out RailBlockData result))
+            {
+                throw new InvalidOperationException("Block data not found");
+            }
+
+            return result;
+        }
+
+        private void PathShrinkingRear(PathCollection path, int newRearIndex)
+        {
+            if (!_pathToTrain.TryGetValue(path, out Train train)) 
+                return;
+            
+            bool changed = false;
+            RailBlockData currBlockData = null;
+            for (int index = path.RearIndex; index < newRearIndex; index++)
+            {
+                changed = true;
+                RailConnection currConnection = (RailConnection) path[index];
+                if (currBlockData?.Block != currConnection.Block)
+                {
+                    currBlockData = GetBlockData(currConnection.Block);
+                }
+                currBlockData?.ReleaseRailSegment(train, currConnection.Track);
+            }
+            if (changed)
+                HighlightReservedPaths();
+        }
         
         #region DEBUG
 
@@ -211,7 +260,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             foreach (Highlighter highlighter in _highlighters)
             {
-                highlighter.SetActive(false);
+                highlighter.gameObject.SetActive(false);
             }
             _highlighters.Clear();
         }
@@ -233,11 +282,20 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
                     {
-                        HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f));
+                        if (railPair.Value > 0)
+                            HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f));
                     }
                     foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
                     {
-                        HighlightRail(railPair.Key, linkedColor.WithAlpha(0.2f + railPair.Value * 0.2f));
+                        if (railPair.Value > 0)
+                            HighlightRail(railPair.Key, linkedColor.WithAlpha(0.2f + railPair.Value * 0.2f));
+                    }
+                    foreach (KeyValuePair<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> railPair in pathRailBlockData.ReservedBeyondPath)
+                    {
+                        foreach (Rail rail in railPair.Value.rails)
+                        {
+                            HighlightRail(rail, Color.blue.WithAlpha(0.9f));
+                        }
                     }
                 }
             }
@@ -317,8 +375,27 @@ namespace AdvancedPathfinder.PathSignals
         
         #endregion
 
+        #region TrainMovement
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Train), "OnConnectionReached")]
+        // ReSharper disable once InconsistentNaming
+        private static void Train_OnConnectionReached_pof(Train __instance, TrackConnection connection)
+        {
+            Current?.TrainConnectionReached(__instance, connection);
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PathCollection), "ShrinkRear")]
+        // ReSharper disable once InconsistentNaming
+        private static void PathCollection_ShrinkRear_prf(PathCollection __instance, int newRearIndex)
+        {
+            Current?.PathShrinkingRear(__instance, newRearIndex);
+        }
+
+        #endregion 
+
         #endregion
-        
         
     }
 }
