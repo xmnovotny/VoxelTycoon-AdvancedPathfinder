@@ -32,5 +32,26 @@ namespace AdvancedPathfinder
             }
         }
 
+        public static HashSet<RailSignal> GetAllRailSignals()
+        {
+            ImmutableList<Rail> rails = LazyManager<BuildingManager>.Current.GetAll<Rail>();
+            HashSet<RailSignal> signals = new();
+
+            for (int i = rails.Count - 1; i >= 0; i--)
+            {
+                Rail rail = rails[i];
+                for (int j = 0; j < rail.ConnectionCount; j++)
+                {
+                    RailConnection conn = rail.GetConnection(j);
+                    if (conn.Signal != null)
+                    {
+                        signals.Add(conn.Signal);
+                    }
+                }
+            }
+
+            return signals;
+        }
+        
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using AdvancedPathfinder.PathSignals;
 using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
@@ -34,7 +35,7 @@ namespace AdvancedPathfinder
         protected override void OnGameStarted()
         {
             Manager<RailPathfinderManager>.Initialize();
-            var current = Manager<RailPathfinderManager>.Current;
+            SimpleManager<PathSignalManager>.Initialize();
         }
 
         protected override void Deinitialize()

@@ -60,7 +60,7 @@ namespace AdvancedPathfinder
         [HarmonyPatch(typeof(RailBlock))]
         private static void RailBlock_setValue_prf(RailBlock __instance, int value)
         {
-            CurrentWithoutInit?._stopwatch.Start();;
+            CurrentWithoutInit?._stopwatch.Start();
             bool oldIsOpen = __instance.IsOpen;
             bool newIsOpen = value == 0;
             if (oldIsOpen != newIsOpen) 

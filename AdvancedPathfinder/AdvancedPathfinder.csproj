@@ -101,6 +101,9 @@
     <Compile Include="..\..\Utils\SimpleLazyManager.cs">
       <Link>Content\Utils\SimpleLazyManager.cs</Link>
     </Compile>
+    <Compile Include="..\..\Utils\SimpleManager.cs">
+      <Link>Content\Utils\SimpleManager.cs</Link>
+    </Compile>
     <Compile Include="..\..\Utils\XMNUtils.cs">
       <Link>Content\Utils\XMNUtils.cs</Link>
     </Compile>
