@@ -20,7 +20,7 @@ namespace AdvancedPathfinder.PathSignals
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
             reservedIndex = 0;
-            if (ReservedForTrain != null)
+            if (IsFullBlocked || ReservedForTrain != null)
                 return false;
             PathSignalData startSignalData = GetAndTestStartSignal(path, startIndex);
             if (startSignalData.ReservedForTrain)
@@ -43,7 +43,12 @@ namespace AdvancedPathfinder.PathSignals
 //                    FileLog.Log($"Released simple block {GetHashCode():X}");
                     ReservedForTrain = null;
                     _reservedSignal = null;
+                    TryFreeFullBlock();
                 }
+            }
+            else
+            {
+                TryFreeFullBlock();
             }
         }
     }

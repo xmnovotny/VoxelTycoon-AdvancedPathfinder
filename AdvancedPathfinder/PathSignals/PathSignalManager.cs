@@ -250,15 +250,16 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train)) 
                 return;
-            PathShrinking(train, path, newFrontIndex+1, path.FrontIndex);
-            if (_reservedPathIndex.GetValueOrDefault(train, int.MinValue) > newFrontIndex)
+            int reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, int.MinValue);
+            PathShrinking(train, path, newFrontIndex+1, path.FrontIndex, reservedPathIndex);
+            if (reservedPathIndex > newFrontIndex)
             {
                 FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train]} new {newFrontIndex}");
                 _reservedPathIndex[train] = newFrontIndex;
             }
         }
         
-        private void PathShrinking(Train train, PathCollection path, int from, int to)  //indexes from and to are inclusive 
+        private void PathShrinking(Train train, PathCollection path, int from, int to, int reservedIndex = Int32.MinValue)  //indexes from and to are inclusive 
         {
             bool changed = false;
             RailBlockData currBlockData = null;
@@ -270,13 +271,21 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     currBlockData = GetBlockData(currConnection.Block);
                 }
-                currBlockData?.ReleaseRailSegment(train, currConnection.Track);
+
+                if (currBlockData != null)
+                {
+                    currBlockData.ReleaseRailSegment(train, currConnection.Track);
+                    if (reservedIndex >= index)
+                        currBlockData.IsFullBlocked = true;
+                }
 
                 currConnection = currConnection.InnerConnection;
                 if (currBlockData?.Block != currConnection.Block)
                 {
                     currBlockData = GetBlockData(currConnection.Block);
                     currBlockData.ReleaseRailSegment(train, currConnection.Track);
+                    if (reservedIndex >= index)
+                        currBlockData.IsFullBlocked = true;
                 }
             }
             if (changed)
@@ -350,17 +359,15 @@ namespace AdvancedPathfinder.PathSignals
 
                         break;
                     }
-                    case SimpleRailBlockData simpleRailBlockData:
-                        if (simpleRailBlockData.ReservedForTrain != null)
-                        {
-                            RailBlock block = simpleRailBlockData.Block;
-                            UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
-                            for (int i = connections.Count - 1; i >= 0; i--)
-                            {
-                                HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.4f));
-                            }
-                        }
-                        break;
+                }
+                if (blockData is SimpleRailBlockData simpleRailBlockData && simpleRailBlockData.ReservedForTrain != null || blockData.IsFullBlocked)
+                {
+                    RailBlock block = blockData.Block;
+                    UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
+                    for (int i = connections.Count - 1; i >= 0; i--)
+                    {
+                        HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.4f));
+                    }
                 }
             }
             HighlightReservedBounds();

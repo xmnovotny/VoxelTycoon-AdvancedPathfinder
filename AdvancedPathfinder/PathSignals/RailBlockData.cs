@@ -12,17 +12,21 @@ namespace AdvancedPathfinder.PathSignals
     {
         public readonly Dictionary<RailSignal, PathSignalData> InboundSignals = new();
         public RailBlock Block { get; }
-        
-        public RailBlockData(RailBlock block)
+        public bool IsFullBlocked { get; internal set; } //no individual path reservation allowed, clears when whole block becomes free of vehicles
+
+        public RailBlockData(RailBlock block): this(block, true)
         {
-            Block = block;
             InboundSignals = new Dictionary<RailSignal, PathSignalData>();
         }
 
-        protected RailBlockData(RailBlock block, Dictionary<RailSignal, PathSignalData> inboundSignals)
+        protected RailBlockData(RailBlock block, Dictionary<RailSignal, PathSignalData> inboundSignals): this(block, true)
+        {
+            InboundSignals.AddRange(inboundSignals);
+        }
+        private RailBlockData(RailBlock block, bool _)
         {
             Block = block;
-            InboundSignals.AddRange(inboundSignals);
+            IsFullBlocked = block.Value != 0;
         }
 
         internal abstract bool TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex,
@@ -53,6 +57,19 @@ namespace AdvancedPathfinder.PathSignals
                         signalData.ReservedForTrain = null;
                 }
             }
+        }
+
+        protected void TryFreeFullBlock()
+        {
+            if (!IsFullBlocked || Block.Value != 0)
+                return;
+            foreach (PathSignalData signalData in InboundSignals.Values)
+            {
+                if (signalData.ReservedForTrain != null)
+                    return;
+            }
+
+            IsFullBlocked = false;
         }
 
         internal abstract void ReleaseRailSegment(Train train, Rail rail);

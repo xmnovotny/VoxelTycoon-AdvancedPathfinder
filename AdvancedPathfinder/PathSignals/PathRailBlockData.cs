@@ -38,9 +38,12 @@ namespace AdvancedPathfinder.PathSignals
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
 //            FileLog.Log($"ReleaseSegmentStart, block: {GetHashCode():X}");
-            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList)) 
+            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList))
+            {
+                TryFreeFullBlock();
                 return;
-            
+            }
+
             if (reservedList.Remove(rail))
             {
 //                FileLog.Log($"ReleaseSegmentSuccess, block: {GetHashCode():X}");
@@ -53,6 +56,7 @@ namespace AdvancedPathfinder.PathSignals
                 _reservedTrainPath.Remove(train);
                 reservedList.Dispose();
                 ReleaseBeyondPath(train);
+                TryFreeFullBlock();
             }
         }
 
@@ -73,8 +77,10 @@ namespace AdvancedPathfinder.PathSignals
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
 //            FileLog.Log($"TryReservePath: {GetHashCode():X}");
-            PathSignalData startSignalData = GetAndTestStartSignal(path, startIndex);
             reservedIndex = 0;
+            if (IsFullBlocked)
+                return false;
+            PathSignalData startSignalData = GetAndTestStartSignal(path, startIndex);
             if (startSignalData.IsChainSignal)
             {
 //                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
