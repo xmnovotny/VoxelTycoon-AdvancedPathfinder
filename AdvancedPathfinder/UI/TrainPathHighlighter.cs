@@ -133,7 +133,7 @@ namespace AdvancedPathfinder.UI
                     _usedHighlighters.Add(conn, hlMan.ForOneTrack(conn.Track, _color, 0.2f));
                 }
 
-                FileLog.Log("Updated highlight in {0} ms".Format((sw.ElapsedTicks / 10000f).ToString("N4")));
+//                FileLog.Log("Updated highlight in {0} ms".Format((sw.ElapsedTicks / 10000f).ToString("N4")));
 
                 IsDirty = false;
                 _lastUpdated = Time.time;

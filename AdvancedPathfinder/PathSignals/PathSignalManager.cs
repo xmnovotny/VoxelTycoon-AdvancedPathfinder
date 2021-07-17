@@ -21,6 +21,7 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new();  //for delay of passing signal 
         private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
+        private readonly Dictionary<Train, int> _reservedPathIndex = new();  //index of train path which is reserved in path signals (path before index should not be altered when updating path)
 
         public RailSignalState GetSignalState(RailSignal signal)
         {
@@ -50,7 +51,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainPassedSignal(Train train, RailSignal signal)
         {
-            FileLog.Log("Train passed signal");
+//            FileLog.Log("Train passed signal");
             if (!_pathSignals.TryGetValue(signal, out PathSignalData data))
                 throw new InvalidOperationException("No data for signal.");
             data.TrainPassedSignal(train);
@@ -201,8 +202,15 @@ namespace AdvancedPathfinder.PathSignals
             RailConnection conn = signal.Connection;
             int? pathIndex = path.FindConnectionIndex(conn, train.FrontBound.ConnectionIndex);
             if (pathIndex == null)
-                throw new InvalidOperationException("Signal connection not found in the path");
-            bool result = signalData.BlockData.TryReservePath(train, path, pathIndex.Value) && signalData.ReservedForTrain == train;
+            {
+//                throw new InvalidOperationException("Signal connection not found in the path");
+                FileLog.Log("Signal connection not found in the path");
+                return false;
+            }
+
+            bool result = signalData.BlockData.TryReservePath(train, path, pathIndex.Value, out int reservedPathIndex) && signalData.ReservedForTrain == train;
+            if (result)
+                _reservedPathIndex[train] = reservedPathIndex;
             HighlightReservedPaths();
             return result;
         }
@@ -233,22 +241,25 @@ namespace AdvancedPathfinder.PathSignals
 
         private void PathShrinkingRear(PathCollection path, int newRearIndex)
         {
-            if (path.RearIndex >= newRearIndex) 
+            if (path.RearIndex >= newRearIndex || !_pathToTrain.TryGetValue(path, out Train train)) 
                 return;
-            PathShrinking(path, path.RearIndex, newRearIndex-1);            
+            PathShrinking(train, path, path.RearIndex, newRearIndex-1);            
         }
 
         private void PathShrinkingFront(PathCollection path, int newFrontIndex)
         {
-            if (path.FrontIndex <= newFrontIndex) 
+            if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train)) 
                 return;
-            PathShrinking(path, newFrontIndex+1, path.FrontIndex);            
+            PathShrinking(train, path, newFrontIndex+1, path.FrontIndex);
+            if (_reservedPathIndex.GetValueOrDefault(train, int.MinValue) > newFrontIndex)
+            {
+                FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train]} new {newFrontIndex}");
+                _reservedPathIndex[train] = newFrontIndex;
+            }
         }
         
-        private void PathShrinking(PathCollection path, int from, int to)  //indexes from and to are inclusive 
+        private void PathShrinking(Train train, PathCollection path, int from, int to)  //indexes from and to are inclusive 
         {
-            if (!_pathToTrain.TryGetValue(path, out Train train)) 
-                return;
             bool changed = false;
             RailBlockData currBlockData = null;
             for (int index = from; index <= to; index++)
@@ -275,6 +286,7 @@ namespace AdvancedPathfinder.PathSignals
         #region DEBUG
 
         private readonly HashSet<Highlighter> _highlighters = new();
+        private float _lastHighlightUpdate = 0;
 
         private void HideHighlighters()
         {
@@ -285,40 +297,73 @@ namespace AdvancedPathfinder.PathSignals
             _highlighters.Clear();
         }
         
-        private void HighlightRail(Rail rail, Color color)
+        private void HighlightRail(Rail rail, Color color, float halfWidth = 0.5f)
         {
             RailConnectionHighlighter man = LazyManager<RailConnectionHighlighter>.Current;
-            _highlighters.Add(man.ForOneTrack(rail, color, 0.6f));
+            _highlighters.Add(man.ForOneTrack(rail, color, halfWidth));
+        }
+
+        private void HighlightReservedBounds()
+        {
+            foreach (KeyValuePair<PathCollection,Train> pair in _pathToTrain)
+            {
+                if (_reservedPathIndex.TryGetValue(pair.Value, out int reservedIndex) && reservedIndex > 0 && pair.Key.ContainsIndex(reservedIndex))
+                {
+                    TrackConnection conn = pair.Key[reservedIndex];
+                    HighlightRail((Rail)conn.Track, Color.black, 0.6f);
+                }
+            }
         }
         
         private void HighlightReservedPaths()
         {
+            if (_lastHighlightUpdate + 1f >= Time.time)
+                return;
+            _lastHighlightUpdate = Time.time;
             HideHighlighters();
             Color color = Color.green;
             Color linkedColor = Color.red;
+            Color simpleBlockColor = Color.magenta;
             foreach (RailBlockData blockData in _railBlocks.Values)
             {
-                if (blockData is PathRailBlockData pathRailBlockData)
+                switch (blockData)
                 {
-                    foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
+                    case PathRailBlockData pathRailBlockData:
                     {
-                        if (railPair.Value > 0)
-                            HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f));
-                    }
-                    foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
-                    {
-                        if (railPair.Value > 0)
-                            HighlightRail(railPair.Key, linkedColor.WithAlpha(0.2f + railPair.Value * 0.2f));
-                    }
-                    foreach (KeyValuePair<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> railPair in pathRailBlockData.ReservedBeyondPath)
-                    {
-                        foreach (Rail rail in railPair.Value.rails)
+                        foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
                         {
-                            HighlightRail(rail, Color.blue.WithAlpha(0.9f));
+                            if (railPair.Value > 0)
+                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f));
                         }
+                        foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
+                        {
+                            if (railPair.Value > 0)
+                                HighlightRail(railPair.Key, linkedColor.WithAlpha(0.2f + railPair.Value * 0.2f));
+                        }
+                        foreach (KeyValuePair<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> railPair in pathRailBlockData.ReservedBeyondPath)
+                        {
+                            foreach (Rail rail in railPair.Value.rails)
+                            {
+                                HighlightRail(rail, Color.blue.WithAlpha(0.9f));
+                            }
+                        }
+
+                        break;
                     }
+                    case SimpleRailBlockData simpleRailBlockData:
+                        if (simpleRailBlockData.ReservedForTrain != null)
+                        {
+                            RailBlock block = simpleRailBlockData.Block;
+                            UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
+                            for (int i = connections.Count - 1; i >= 0; i--)
+                            {
+                                HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.4f));
+                            }
+                        }
+                        break;
                 }
             }
+            HighlightReservedBounds();
         }
         
         #endregion
@@ -416,12 +461,57 @@ namespace AdvancedPathfinder.PathSignals
         [HarmonyPrefix]
         [HarmonyPatch(typeof(PathCollection), "ShrinkFront")]
         // ReSharper disable once InconsistentNaming
-        private static void PathCollection_ShrinkFront_prf(PathCollection __instance, int newFrontIndex)
+        private static void PathCollection_ShrinkFront_prf(PathCollection __instance, ref int newFrontIndex)
         {
+            if (_isUpdatingPath && _origReservedPathIndex > Int32.MinValue)
+                newFrontIndex = _origReservedPathIndex;
             Current?.PathShrinkingFront(__instance, newFrontIndex);
         }
-        #endregion 
+        #endregion
 
+        #region PathUpdate
+        
+        private static bool _isUpdatingPath;
+        private static int _origReservedPathIndex;
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Vehicle), "UpdatePathIntenal")]
+        // ReSharper disable once InconsistentNaming
+        private static void Vehicle_UpdatePathIntenal_prf(Vehicle __instance, bool canFlip)
+        {
+            if (Current != null && __instance is Train train && canFlip == false)
+            {
+                _isUpdatingPath = true;
+            }
+        }
+        
+        [HarmonyFinalizer]
+        [HarmonyPatch(typeof(Vehicle), "UpdatePathIntenal")]
+        // ReSharper disable once InconsistentNaming
+        private static void Vehicle_UpdatePathIntenal_fin(Vehicle __instance, bool canFlip)
+        {
+            _isUpdatingPath = false;
+            _origReservedPathIndex = Int32.MinValue;
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Train), "TryFindPath")]
+        // ReSharper disable once InconsistentNaming
+        private static void Train_TryFindPath_prf(Train __instance, ref TrackConnection origin, PathCollection ___Path)
+        {
+            if (_isUpdatingPath && Current != null && Current._reservedPathIndex.TryGetValue(__instance, out _origReservedPathIndex) && _origReservedPathIndex > ___Path.RearIndex)
+            {
+//                FileLog.Log($"Refind path reservedIndex: {_origReservedPathIndex}, rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex}");
+                origin = ___Path[_origReservedPathIndex];
+            }
+            else
+            {
+                _origReservedPathIndex = int.MinValue;
+            }
+        }
+        
+        #endregion
+        
         #endregion
         
     }

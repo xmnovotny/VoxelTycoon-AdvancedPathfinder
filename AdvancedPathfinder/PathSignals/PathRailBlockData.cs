@@ -70,13 +70,14 @@ namespace AdvancedPathfinder.PathSignals
             data.rails.Dispose();
         }
 
-        internal override bool TryReservePath(Train train, PathCollection path, int startIndex)
+        internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
-            FileLog.Log($"TryReservePath: {GetHashCode():X}");
+//            FileLog.Log($"TryReservePath: {GetHashCode():X}");
             PathSignalData startSignalData = GetAndTestStartSignal(path, startIndex);
+            reservedIndex = 0;
             if (startSignalData.IsChainSignal)
             {
-                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
+//                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
                 using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
                 if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                     return false;
@@ -86,14 +87,20 @@ namespace AdvancedPathfinder.PathSignals
                     RailBlockData nextBlockData = nextSignalData.BlockData;
                     if (nextBlockData == this)
                         throw new InvalidOperationException("Next block in the path is the same block");
-                    if (!nextBlockData.TryReservePath(train, path, _lastPathIndex))
+                    if (!nextBlockData.TryReservePath(train, path, _lastPathIndex, out reservedIndex))
                         return false;
                 }
                 ReserveOwnPathInternal(train, railCache, startSignalData);
                 return true;
             }
 
-            return TryReserveOwnPath(train, path, startIndex, startSignalData);
+            if (TryReserveOwnPath(train, path, startIndex, startSignalData))
+            {
+                reservedIndex = _lastPathIndex;
+                return true;
+            }
+
+            return false;
         }
 
         private void ReleaseRailSegmentInternal(Rail rail)
@@ -107,7 +114,7 @@ namespace AdvancedPathfinder.PathSignals
         
         private bool TryReserveOwnPath([NotNull] Train train, [NotNull] PathCollection path, int startIndex, PathSignalData startSignalData)
         {
-            FileLog.Log($"TryReserveOwnPath: {GetHashCode():X}");
+//            FileLog.Log($"TryReserveOwnPath: {GetHashCode():X}");
             using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
             if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                 return false;
@@ -138,7 +145,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void ReserveOwnPathInternal(Train train, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railsToBlock, PathSignalData startSignal)
         {
-            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
+//            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
             Rail lastRail = null;
             PooledHashSet<Rail> beyondRails = null;
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))

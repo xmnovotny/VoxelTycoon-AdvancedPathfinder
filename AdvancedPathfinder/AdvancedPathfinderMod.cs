@@ -74,8 +74,8 @@ namespace AdvancedPathfinder
                 _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
                 _newMs += manager.ElapsedMilliseconds;
                 float blockUpdatesMs = SimpleLazyManager<RailBlockHelper>.Current.ElapsedMilliseconds;
-                FileLog.Log("Finding path, result={0}, in {1}ms (original was in {2}ms)".Format(result2.ToString(), manager.ElapsedMilliseconds.ToString("N2"), TrainPathfinder.Current.ElapsedMilliseconds.ToString("N2")));
-                FileLog.Log(string.Format("Total original = {0:N0}ms, new = {1:N0}ms, ratio = {2:N1}%, block updates = {3:N2}ms", (_origMs), _newMs+blockUpdatesMs, (_origMs / (_newMs+blockUpdatesMs) * 100f), blockUpdatesMs));
+ //               FileLog.Log("Finding path, result={0}, in {1}ms (original was in {2}ms)".Format(result2.ToString(), manager.ElapsedMilliseconds.ToString("N2"), TrainPathfinder.Current.ElapsedMilliseconds.ToString("N2")));
+//                FileLog.Log(string.Format("Total original = {0:N0}ms, new = {1:N0}ms, ratio = {2:N1}%, block updates = {3:N2}ms", (_origMs), _newMs+blockUpdatesMs, (_origMs / (_newMs+blockUpdatesMs) * 100f), blockUpdatesMs));
                 __result = result2;
             }
         }

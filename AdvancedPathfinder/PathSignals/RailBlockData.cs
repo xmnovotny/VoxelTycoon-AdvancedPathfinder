@@ -25,7 +25,8 @@ namespace AdvancedPathfinder.PathSignals
             InboundSignals.AddRange(inboundSignals);
         }
 
-        internal abstract bool TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex);
+        internal abstract bool TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex,
+            out int reservedIndex);
 
         protected PathSignalData GetAndTestStartSignal(PathCollection path, int startIndex)
         {
