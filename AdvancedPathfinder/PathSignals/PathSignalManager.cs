@@ -185,11 +185,12 @@ namespace AdvancedPathfinder.PathSignals
         {
             _changedStates.Add(signalData.Signal);
         }
-        
+
         private bool IsSignalOpenForTrain(RailSignal signal, Train train, PathCollection path)
         {
             _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
+//            FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (signalData.ReservedForTrain == train)
                 return true;
             if (signalData.ReservedForTrain != null)
@@ -209,6 +210,7 @@ namespace AdvancedPathfinder.PathSignals
             }
 
             bool result = signalData.BlockData.TryReservePath(train, path, pathIndex.Value, out int reservedPathIndex) && signalData.ReservedForTrain == train;
+//            FileLog.Log($"IsSignalOpenForTrain 2 {result}, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (result)
                 _reservedPathIndex[train] = reservedPathIndex;
             HighlightReservedPaths();
@@ -251,10 +253,11 @@ namespace AdvancedPathfinder.PathSignals
             if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train)) 
                 return;
             int reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, int.MinValue);
+//            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}");
             PathShrinking(train, path, newFrontIndex+1, path.FrontIndex, reservedPathIndex);
             if (reservedPathIndex > newFrontIndex)
             {
-                FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train]} new {newFrontIndex}");
+//                FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train]} new {newFrontIndex}");
                 _reservedPathIndex[train] = newFrontIndex;
             }
         }
@@ -276,7 +279,7 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     currBlockData.ReleaseRailSegment(train, currConnection.Track);
                     if (reservedIndex >= index)
-                        currBlockData.IsFullBlocked = true;
+                        currBlockData.FullBlock();
                 }
 
                 currConnection = currConnection.InnerConnection;
@@ -285,7 +288,7 @@ namespace AdvancedPathfinder.PathSignals
                     currBlockData = GetBlockData(currConnection.Block);
                     currBlockData.ReleaseRailSegment(train, currConnection.Track);
                     if (reservedIndex >= index)
-                        currBlockData.IsFullBlocked = true;
+                        currBlockData.FullBlock();
                 }
             }
             if (changed)

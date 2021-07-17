@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using JetBrains.Annotations;
 using MonoMod.Utils;
 using VoxelTycoon.Tracks;
@@ -12,6 +13,7 @@ namespace AdvancedPathfinder.PathSignals
     {
         public readonly Dictionary<RailSignal, PathSignalData> InboundSignals = new();
         public RailBlock Block { get; }
+
         public bool IsFullBlocked { get; internal set; } //no individual path reservation allowed, clears when whole block becomes free of vehicles
 
         public RailBlockData(RailBlock block): this(block, true)
@@ -27,6 +29,12 @@ namespace AdvancedPathfinder.PathSignals
         {
             Block = block;
             IsFullBlocked = block.Value != 0;
+        }
+
+        internal void FullBlock()
+        {
+            if (!IsFullBlocked)
+                IsFullBlocked = Block.Value != 0;
         }
 
         internal abstract bool TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex,
@@ -45,6 +53,7 @@ namespace AdvancedPathfinder.PathSignals
 
         protected void ReleaseInboundSignal(Train train, Rail rail)
         {
+//            FileLog.Log($"TryReleaseInboundSignal rail:{rail.GetHashCode():X8}");
             if (rail.SignalCount > 0)
             {
                 for (int i = 0; i <= 1; i++)
@@ -54,7 +63,16 @@ namespace AdvancedPathfinder.PathSignals
                         continue;
                         
                     if (signalData.ReservedForTrain == train)
+                    {
                         signalData.ReservedForTrain = null;
+//                        FileLog.Log($"ReleasedInboundSignal {signalData.GetHashCode():X8}");
+                    }
+                    else
+                    {
+                        if (signalData.ReservedForTrain != null)
+                            FileLog.Log("Reserved for another train");
+                    }
+
                 }
             }
         }

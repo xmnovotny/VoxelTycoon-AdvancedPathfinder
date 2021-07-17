@@ -19,6 +19,7 @@ namespace AdvancedPathfinder.PathSignals
 
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
+//            FileLog.Log($"Try reserve simple path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
             reservedIndex = 0;
             if (IsFullBlocked || ReservedForTrain != null)
                 return false;

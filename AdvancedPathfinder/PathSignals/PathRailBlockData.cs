@@ -37,7 +37,7 @@ namespace AdvancedPathfinder.PathSignals
 
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
-//            FileLog.Log($"ReleaseSegmentStart, block: {GetHashCode():X}");
+//            FileLog.Log($"ReleaseSegmentStart, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList))
             {
                 TryFreeFullBlock();
@@ -46,8 +46,8 @@ namespace AdvancedPathfinder.PathSignals
 
             if (reservedList.Remove(rail))
             {
-//                FileLog.Log($"ReleaseSegmentSuccess, block: {GetHashCode():X}");
                 ReleaseRailSegmentInternal(rail);
+//                FileLog.Log($"ReleaseSegmentSuccess, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
                 ReleaseInboundSignal(train, rail);
             }
 
@@ -76,7 +76,7 @@ namespace AdvancedPathfinder.PathSignals
 
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
-//            FileLog.Log($"TryReservePath: {GetHashCode():X}");
+//            FileLog.Log($"Try reserve path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
             reservedIndex = 0;
             if (IsFullBlocked)
                 return false;
@@ -152,6 +152,7 @@ namespace AdvancedPathfinder.PathSignals
         private void ReserveOwnPathInternal(Train train, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railsToBlock, PathSignalData startSignal)
         {
 //            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
+//            FileLog.Log($"Reserve own path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
             Rail lastRail = null;
             PooledHashSet<Rail> beyondRails = null;
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))
@@ -212,7 +213,10 @@ namespace AdvancedPathfinder.PathSignals
             int index = startIndex + 1;
             _lastPathIndex = index;
             _lastEndSignal = null;
-            RailConnection connection = null;
+            RailConnection connection = (RailConnection)path[startIndex];
+            if (connection.InnerConnection.Block != Block)
+                throw new InvalidOperationException("Connection is from another block");
+            yield return (connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
             Rail lastRail = null;
             while (index <= path.FrontIndex)
             {
@@ -229,7 +233,7 @@ namespace AdvancedPathfinder.PathSignals
                     yield return (rail.GetLinkedRail(j), true, false);
                 }
 
-                if (connection.Signal != null || connection.InnerConnection.Signal != null)
+                if (index != startIndex && connection.Signal != null || connection.InnerConnection.Signal != null)
                 {
                     _lastEndSignal = connection.Signal;
                     yield break;

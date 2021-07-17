@@ -22,6 +22,10 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (value != _reservedForTrain)
                 {
+/*                    if (value == null )
+                        FileLog.Log($"ReleasedSignal {GetHashCode():X8}");
+                    else
+                        FileLog.Log($"ReservedSignal {GetHashCode():X8}");*/
                     _reservedForTrain = value;
                     StateChanged?.Invoke(this);
                 }
