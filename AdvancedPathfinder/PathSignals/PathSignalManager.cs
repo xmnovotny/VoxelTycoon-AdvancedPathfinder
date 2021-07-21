@@ -21,6 +21,7 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new(); //for delay of passing signal 
         private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
+        private bool _highlightDirty = true;
 
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -45,11 +46,19 @@ namespace AdvancedPathfinder.PathSignals
 
         protected override void OnInitialize()
         {
+            Behaviour.OnLateUpdateAction -= OnLateUpdate;
+            Behaviour.OnLateUpdateAction += OnLateUpdate;
             Stopwatch sw = Stopwatch.StartNew();
             base.OnInitialize();
             FindBlocksAndSignals();
             sw.Stop();
             FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
+        }
+
+        private void OnLateUpdate()
+        {
+            if (_highlightDirty)
+                HighlightReservedPaths();
         }
 
         private void TrainPassedSignal(Train train, RailSignal signal)
@@ -381,8 +390,13 @@ namespace AdvancedPathfinder.PathSignals
 
         private void HighlightReservedPaths()
         {
-/*            if (_lastHighlightUpdate + 1f >= Time.time)
-                return;*/
+            if (_lastHighlightUpdate + 1f >= Time.time)
+            {
+                _highlightDirty = true;
+                return;
+            }
+
+            _highlightDirty = false;
             _lastHighlightUpdate = Time.time;
             HideHighlighters();
             Color color = Color.green;
