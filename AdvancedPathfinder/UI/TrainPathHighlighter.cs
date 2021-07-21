@@ -152,7 +152,7 @@ namespace AdvancedPathfinder.UI
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(TrackUnit), "UpdatePosition")]
-        private static void TrackUnit_UUpdatePosition_pof(TrackUnit __instance)
+        private static void TrackUnit_UpdatePosition_pof(TrackUnit __instance)
         {
             if (__instance is Train train)
             {
