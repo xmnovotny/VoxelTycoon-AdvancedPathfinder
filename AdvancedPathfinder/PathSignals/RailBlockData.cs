@@ -77,7 +77,7 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
-        protected void TryFreeFullBlock()
+        public void TryFreeFullBlock()
         {
             if (!IsFullBlocked || Block.Value != 0)
                 return;

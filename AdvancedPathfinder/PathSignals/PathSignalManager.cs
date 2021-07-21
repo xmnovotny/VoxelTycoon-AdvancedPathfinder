@@ -346,6 +346,59 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
+        private void TrainAttached(PathCollection path)
+        {
+            RailBlock lastBlock = null;
+            for (int i = path.RearIndex; i < path.FrontIndex; i++)
+            {
+                RailConnection conn = (RailConnection) path[i];
+                RailBlock block = conn.Block;
+                if (block != lastBlock)
+                {
+                    GetBlockData(block).FullBlock();
+                    lastBlock = block;
+                }
+
+                block = conn.InnerConnection.Block;
+                if (block != lastBlock)
+                {
+                    GetBlockData(block).FullBlock();
+                    lastBlock = block;
+                }
+            }
+            HighlightReservedPaths();
+        }
+
+        private void TryReleaseFullBlock()
+        {
+            foreach (RailBlockData blockData in _railBlocks.Values)
+            {
+                blockData.TryFreeFullBlock();
+            }
+        }
+        
+        private void PathClearing(PathCollection path)
+        {
+            if (path.Count > 0 && _pathToTrain.TryGetValue(path, out Train train))
+            {
+                PathShrinking(train, path, path.RearIndex, path.FrontIndex);
+                _pathToTrain.Remove(path);
+            }
+        }
+
+        private void DeleteTrainData(Train train)
+        {
+            _passedSignals.Remove(train);
+            _reservedPathIndex.Remove(train);
+        }
+
+        private void TrainDetached(Train train)
+        {
+            DeleteTrainData(train);
+            TryReleaseFullBlock();
+            HighlightReservedPaths();
+        }
+
         #region DEBUG
 
         private readonly HashSet<Highlighter> _highlighters = new();
@@ -523,11 +576,41 @@ namespace AdvancedPathfinder.PathSignals
         #region TrainMovement
 
         [HarmonyPostfix]
+        [HarmonyPatch(typeof(TrackUnit), "Attach")]
+        // ReSharper disable once InconsistentNaming
+        private static void TrackUnit_Attach_pof(TrackUnit __instance, PathCollection ___Path)
+        {
+            if (Current != null && __instance is Train train)
+            {
+                Current.TrainAttached(___Path);
+            }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TrackUnit), "Detach")]
+        // ReSharper disable once InconsistentNaming
+        private static void TrackUnit_Detach_pof(TrackUnit __instance)
+        {
+            if (Current != null && __instance is Train train)
+            {
+                Current.TrainDetached(train);
+            }
+        }
+
+        [HarmonyPostfix]
         [HarmonyPatch(typeof(Train), "OnConnectionReached")]
         // ReSharper disable once InconsistentNaming
         private static void Train_OnConnectionReached_pof(Train __instance, TrackConnection connection)
         {
             Current?.TrainConnectionReached(__instance, connection);
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(PathCollection), "Clear")]
+        // ReSharper disable once InconsistentNaming
+        private static void PathCollection_Clear_prf(PathCollection __instance)
+        {
+            Current?.PathClearing(__instance);
         }
 
         [HarmonyPrefix]
@@ -647,7 +730,6 @@ namespace AdvancedPathfinder.PathSignals
                 result.Clear();
                 result.Add(_origDestination);
                 _deleteResultList = true;
-//                _skipFirstPart = false;
                 __result = true;
                 FileLog.Log($"Skip first part of path rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex}");
                 return false;
@@ -655,7 +737,7 @@ namespace AdvancedPathfinder.PathSignals
             FileLog.Log($"Train_TryFindPath_prf: can shrink {_canShrinkReservedPath}");
             
             if (!_canShrinkReservedPath && Current != null && origin != __instance.RearBound.Connection.InnerConnection && Current._reservedPathIndex.TryGetValue(__instance, out (int reservedIdx, int? nextDestinationIdx) reserved) &&
-                reserved.reservedIdx >= __instance.FrontBound.ConnectionIndex && (_skipFirstPart || target != _nextDestination))
+                reserved.reservedIdx >= __instance.FrontBound.ConnectionIndex && reserved.reservedIdx >=___Path.RearIndex && (_skipFirstPart || target != _nextDestination))
             {
                 _origReservedPathIndex = reserved.reservedIdx;
                 origin = ___Path[_origReservedPathIndex];
