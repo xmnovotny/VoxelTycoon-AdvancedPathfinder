@@ -50,6 +50,7 @@ namespace AdvancedPathfinder
         private Pathfinder<TPathfinderNode> Pathfinder { get => _pathfinder ??= new Pathfinder<TPathfinderNode>(); }
 
         private readonly HashSet<Highlighter> _highlighters = new();
+        private bool _graphDirty;
         public float ElapsedMilliseconds { get; private set; }
 
         [CanBeNull]
@@ -134,6 +135,7 @@ namespace AdvancedPathfinder
         protected bool FindPath([NotNull] TTrackConnection origin, [NotNull] IVehicleDestination target,
             object edgeSettings, List<TrackConnection> result, IReadOnlyCollection<TPathfinderNode> nodesList = null)
         {
+            InvalidateGraph();
             Stopwatch sw = Stopwatch.StartNew();
             TPathfinderNode originNode = FindNearestNode(origin);
             if (originNode == null)
@@ -158,6 +160,14 @@ namespace AdvancedPathfinder
             }
 
             return true;
+        }
+
+        private void InvalidateGraph()
+        {
+            if (!_graphDirty)
+                return;
+            _graphDirty = false;
+            BuildGraph();
         }
 
         protected virtual void ProcessNodeToSubLists(TPathfinderNode node)
@@ -349,7 +359,7 @@ namespace AdvancedPathfinder
             }
         }
 
-        private void BuildGraph()
+        protected void BuildGraph()
         {
             try
             {
@@ -371,7 +381,7 @@ namespace AdvancedPathfinder
                 sw.Stop();
                 FileLog.Log("Find edges={0}".Format(sw.Elapsed));
 
-                sw.Restart();
+/*                sw.Restart();
                 Pathfinder.FindAll(_nodes[0], _reachableNodes, new RailEdgeSettings());
                 sw.Stop();
                 FileLog.Log("Find paths={0} ms".Format(sw.ElapsedTicks / 10000f));
@@ -381,7 +391,7 @@ namespace AdvancedPathfinder
                     distances.Add(distance.ToString("N1"));
                 }
 
-                FileLog.Log("Distances: " + distances.JoinToString("; "));
+                FileLog.Log("Distances: " + distances.JoinToString("; "));*/
 //                HighlightSections();
             }
             catch (Exception e)
@@ -389,6 +399,12 @@ namespace AdvancedPathfinder
                 FileLog.Log("Exception");
                 AdvancedPathfinderMod.Logger.LogException(e);
             }
+        }
+
+        protected void MarkGraphDirty()
+        {
+            FileLog.Log("Graph is dirty");
+            _graphDirty = true;
         }
 
         protected override void OnInitialize()

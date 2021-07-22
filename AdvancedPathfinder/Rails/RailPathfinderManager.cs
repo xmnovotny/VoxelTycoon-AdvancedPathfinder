@@ -31,6 +31,13 @@ namespace AdvancedPathfinder.Rails
                 _electricalNodes.Add(node);
         }
 
+        protected override void OnInitialize()
+        {
+            base.OnInitialize();
+            LazyManager<TrackHelper>.Current.RegisterRailsChanged(OnRailsChanged);
+            LazyManager<TrackHelper>.Current.RegisterSignalBuildChanged(OnSignalBuildChanged);
+        }
+
         protected override IReadOnlyCollection<RailConnection> GetStationStopsConnections()
         {
             return StationHelper<RailConnection, RailStation>.Current.GetStationStopsConnections();
@@ -55,5 +62,17 @@ namespace AdvancedPathfinder.Rails
             hl.transform.SetParent(rail.transform);
             return hl;
         }
+
+        private void OnRailsChanged(IReadOnlyList<Rail> newRails, IReadOnlyList<Rail> removedRails)
+        {
+            MarkGraphDirty();
+        }
+        
+        private void OnSignalBuildChanged(IReadOnlyList<RailSignal> newSignals,
+            IReadOnlyList<RailSignal> removedSignals)
+        {
+            MarkGraphDirty();
+        }
+
     }
 }
