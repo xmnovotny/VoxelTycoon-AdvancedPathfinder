@@ -454,7 +454,8 @@ namespace AdvancedPathfinder.PathSignals
             HideHighlighters();
             Color color = Color.green;
             Color linkedColor = Color.red;
-            Color simpleBlockColor = Color.magenta;
+            Color simpleBlockColor = Color.green;
+            simpleBlockColor.g = 230;
             foreach (RailBlockData blockData in _railBlocks.Values)
             {
                 switch (blockData)
@@ -464,20 +465,20 @@ namespace AdvancedPathfinder.PathSignals
                         foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
                         {
                             if (railPair.Value > 0)
-                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f));
+                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f), 0.43f);
                         }
 
                         foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
                         {
                             if (railPair.Value > 0)
-                                HighlightRail(railPair.Key, linkedColor.WithAlpha(0.2f + railPair.Value * 0.2f));
+                                HighlightRail(railPair.Key, linkedColor.WithAlpha(0.1f + railPair.Value * 0.1f), 0.2f);
                         }
 
                         foreach (KeyValuePair<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> railPair in pathRailBlockData.ReservedBeyondPath)
                         {
                             foreach (Rail rail in railPair.Value.rails)
                             {
-                                HighlightRail(rail, Color.blue.WithAlpha(0.9f));
+                                HighlightRail(rail, Color.blue.WithAlpha(0.9f), 0.45f);
                             }
                         }
 
@@ -491,7 +492,7 @@ namespace AdvancedPathfinder.PathSignals
                     UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
                     for (int i = connections.Count - 1; i >= 0; i--)
                     {
-                        HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.4f));
+                        HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.3f), 0.43f);
                     }
                 }
             }
