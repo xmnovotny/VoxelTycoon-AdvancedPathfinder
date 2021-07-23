@@ -11,14 +11,47 @@ namespace AdvancedPathfinder.PathSignals
 {
     public abstract class RailBlockData
     {
+        private Action<RailBlockData, bool> _blockFreeChangedEvent;
         public readonly Dictionary<RailSignal, PathSignalData> InboundSignals = new();
+        private bool _isFullBlocked;
         public RailBlock Block { get; }
 
-        public bool IsFullBlocked { get; internal set; } //no individual path reservation allowed, clears when whole block becomes free of vehicles
+        public bool IsFullBlocked
+        {
+            get => _isFullBlocked;
+            internal set
+            {
+                if (_isFullBlocked != value)
+                {
+                    bool lastIsBlockFree = IsBlockFree;
+                    _isFullBlocked = value;
+                    if (lastIsBlockFree != IsBlockFree)
+                        OnBlockFreeChanged(!lastIsBlockFree);
+                }
+            }
+        } //no individual path reservation allowed, clears when whole block becomes free of vehicles
+
+        public virtual bool IsBlockFree => Block.Value == 0 && _isFullBlocked == false;
 
         public RailBlockData(RailBlock block): this(block, true)
         {
             InboundSignals = new Dictionary<RailSignal, PathSignalData>();
+        }
+
+        public void RegisterBlockFreeChanged(Action<RailBlockData, bool> onBlockFreeChanged)
+        {
+            _blockFreeChangedEvent -= onBlockFreeChanged;
+            _blockFreeChangedEvent += onBlockFreeChanged;
+        }
+
+        public void UnregisterBlockFreeChanged(Action<RailBlockData, bool> onBlockFreeChanged)
+        {
+            _blockFreeChangedEvent -= onBlockFreeChanged;
+        }
+
+        protected void OnBlockFreeChanged(bool isFree)
+        {
+            _blockFreeChangedEvent?.Invoke(this, isFree);
         }
 
         protected RailBlockData(RailBlock block, Dictionary<RailSignal, PathSignalData> inboundSignals): this(block, true)

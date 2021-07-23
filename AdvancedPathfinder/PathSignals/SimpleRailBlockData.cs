@@ -7,8 +7,25 @@ namespace AdvancedPathfinder.PathSignals
 {
     public class SimpleRailBlockData: RailBlockData
     {
-        public Train ReservedForTrain { get; private set; }
+        public Train ReservedForTrain
+        {
+            get => _reservedForTrain;
+            private set
+            {
+                if (_reservedForTrain != value)
+                {
+                    bool lastIsBlockFree = IsBlockFree;
+                    _reservedForTrain = value;
+                    if (lastIsBlockFree != IsBlockFree)
+                        OnBlockFreeChanged(!lastIsBlockFree);
+                }
+            }
+        }
+
+        public override bool IsBlockFree => IsFullBlocked == false && _reservedForTrain == null && Block.Value == 0;
         public PathSignalData _reservedSignal;
+        private Train _reservedForTrain;
+
         public SimpleRailBlockData(RailBlock block) : base(block)
         {
         }

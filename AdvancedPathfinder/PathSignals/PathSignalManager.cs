@@ -36,6 +36,16 @@ namespace AdvancedPathfinder.PathSignals
             return data.GetSignalState();
         }
 
+        public bool IsBlockOpen(RailBlock block)
+        {
+            if (_railBlocks.TryGetValue(block, out RailBlockData data))
+            {
+                return data.IsBlockFree;
+            }
+
+            return block.IsOpen;
+        }
+
         [NotNull]
         internal PathSignalData GetPathSignalData(RailSignal signal)
         {
@@ -184,6 +194,7 @@ namespace AdvancedPathfinder.PathSignals
             if (!_railBlocks.TryGetValue(block, out RailBlockData data))
             {
                 data = new PathRailBlockData(block);
+                data.RegisterBlockFreeChanged(OnBlockFreeChanged);    
                 _railBlocks.Add(block, data);
             }
 
@@ -191,6 +202,11 @@ namespace AdvancedPathfinder.PathSignals
                 throw new InvalidOperationException("RailBlockData contains SimpleBlockData");
 
             return pathData;
+        }
+
+        private void OnBlockFreeChanged(RailBlockData data, bool isFree)
+        {
+            SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.PathSignalBlockFreeChanged(data.Block, isFree);
         }
 
         private void OnSignalStateChanged(PathSignalData signalData)

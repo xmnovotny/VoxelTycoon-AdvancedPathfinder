@@ -13,6 +13,7 @@ namespace AdvancedPathfinder.Rails
         private const float ClosedBlockPlatformMult = 10f;
         private readonly RailSectionData _data = new();
         private readonly Dictionary<RailBlock, float> _railBlocksLengths = new();
+        private readonly Dictionary<RailBlock, bool> _railBlocksStates = new();
         private float? _closedBlockLength;
 
         public RailSectionData Data => _data;
@@ -23,12 +24,15 @@ namespace AdvancedPathfinder.Rails
                 return _closedBlockLength.Value;
             
             float result = 0f;
-            foreach (KeyValuePair<RailBlock,float> pair in _railBlocksLengths)
+            foreach (KeyValuePair<RailBlock, float> pair in _railBlocksLengths)
             {
-                if (!pair.Key.IsOpen)
+                bool isOpen = SimpleLazyManager<RailBlockHelper>.Current.IsBlockOpen(pair.Key); 
+                if (isOpen)
                 {
                     result += CalculateCloseBlockLength(pair.Value);
                 }
+
+                _railBlocksStates[pair.Key] = isOpen;
             }
 
             _closedBlockLength = result;
@@ -82,10 +86,13 @@ namespace AdvancedPathfinder.Rails
 
             RailBlock block1 = startConnection.Block;
             RailBlock block2 = startConnection.InnerConnection.Block;
+            RailBlockHelper blockHelper = SimpleLazyManager<RailBlockHelper>.Current;
+            _railBlocksStates[block1] = blockHelper.IsBlockOpen(block1);
             if (block1 != block2)
             {
                 float length = startConnection.Length / 2;
                 _railBlocksLengths.AddFloatToDict(block1, length);
+                _railBlocksStates[block2] = blockHelper.IsBlockOpen(block2);
                 _railBlocksLengths.AddFloatToDict(block2, length);
             }
             else
@@ -101,13 +108,14 @@ namespace AdvancedPathfinder.Rails
 
         private void OnBlockStateChange(RailBlock block, bool oldIsOpen, bool newIsOpen)
         {
-            if (_closedBlockLength.HasValue && _railBlocksLengths.TryGetValue(block, out float length))
+            if (_closedBlockLength.HasValue && _railBlocksStates.TryGetValue(block, out bool oldState) && oldState != newIsOpen && _railBlocksLengths.TryGetValue(block, out float length))
             {
                 float value = CalculateCloseBlockLength(length);
-                if (newIsOpen)
+                if (!newIsOpen)
                     _closedBlockLength -= value;
                 else
                     _closedBlockLength += value;
+                _railBlocksStates[block] = newIsOpen;
             }
         }
     }

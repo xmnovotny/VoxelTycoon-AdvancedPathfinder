@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using AdvancedPathfinder.PathSignals;
 using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Tracks.Rails;
@@ -45,6 +46,17 @@ namespace AdvancedPathfinder
                     _blockStateChangeAction[block] = action;
                 }
             }
+        }
+
+        public bool IsBlockOpen(RailBlock block)
+        {
+            return SimpleManager<PathSignalManager>.Current == null ? block.IsOpen : SimpleManager<PathSignalManager>.Current.IsBlockOpen(block);
+        }
+
+        internal void PathSignalBlockFreeChanged(RailBlock block, bool isFree)
+        {
+            FileLog.Log("PathSignalBlockFreeChanged");
+            OnBlockStateChange(block, !isFree, isFree);
         }
 
         private void OnBlockStateChange(RailBlock block, bool oldValue, bool newValue)
