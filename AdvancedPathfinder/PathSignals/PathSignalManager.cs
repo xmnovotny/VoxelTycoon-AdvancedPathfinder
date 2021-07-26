@@ -59,10 +59,17 @@ namespace AdvancedPathfinder.PathSignals
             Behaviour.OnLateUpdateAction -= OnLateUpdate;
             Behaviour.OnLateUpdateAction += OnLateUpdate;
             Stopwatch sw = Stopwatch.StartNew();
-            base.OnInitialize();
             FindBlocksAndSignals();
             sw.Stop();
+            SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
+            SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
             FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
+        }
+
+        protected override void OnDeinitialize()
+        {
+            SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.UnregisterBlockCreatedAction(BlockCreated);
+            SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.UnregisterBlockRemovingAction(BlockRemoving);
         }
 
         private void OnLateUpdate()
@@ -81,7 +88,6 @@ namespace AdvancedPathfinder.PathSignals
 
         private void FindBlocksAndSignals()
         {
-            Dictionary<RailBlock, int> blockSignalCounts = new();
             HashSet<RailSignal> signals = TrackHelper.GetAllRailSignals();
             foreach (RailSignal signal in signals)
             {
@@ -103,27 +109,19 @@ namespace AdvancedPathfinder.PathSignals
             CreatePathSignalsData();
         }
 
-        /**
-         * Remove blocks, that have no switch in the block and have no chain signal
-         */
-        private void DetectSimpleBlocks()
+        private bool IsSimpleBlock(RailBlockData blockData)
         {
-            List<KeyValuePair<RailBlock, RailBlockData>> toConvert = new List<KeyValuePair<RailBlock, RailBlockData>>();
-            HashSet<RailSignal> signalsToCheck = new();
-            foreach (KeyValuePair<RailBlock, RailBlockData> pair in _railBlocks)
-            {
-                PathRailBlockData blockData = (PathRailBlockData) pair.Value;
+                using PooledHashSet<RailSignal> signalsToCheck = PooledHashSet<RailSignal>.Take();
                 int inbCount = blockData.InboundSignals.Count;
                 if (inbCount == 0)
                 {
-                    toConvert.Add(pair);
-                    continue;
+                    return true;
                 }
 
                 foreach (RailSignal signal in blockData.InboundSignals.Keys)
                 {
                     if (PathSignalData.CheckIsChainSignal(signal)) //some of inbound signals are chain = no simple block
-                        goto NotSimple;
+                        return false;
                     ;
                 }
 
@@ -138,7 +136,7 @@ namespace AdvancedPathfinder.PathSignals
                     {
                         if (connection.OuterConnectionCount > 1)
                         {
-                            goto NotSimple;
+                            return false;
                         }
 
                         if (connection.OuterConnectionCount == 0) //end of track
@@ -147,7 +145,7 @@ namespace AdvancedPathfinder.PathSignals
                         connection = (RailConnection) connection.OuterConnections[0];
                         if (connection.OuterConnectionCount > 1)
                         {
-                            goto NotSimple;
+                            return false;
                         }
 
                         connection = connection.InnerConnection;
@@ -164,8 +162,21 @@ namespace AdvancedPathfinder.PathSignals
                     }
                 }
 
-                toConvert.Add(pair);
-                NotSimple: ;
+                return true;
+        }
+
+        /**
+         * Remove blocks, that have no switch in the block and have no chain signal
+         */
+        private void DetectSimpleBlocks()
+        {
+            List<KeyValuePair<RailBlock, RailBlockData>> toConvert = new List<KeyValuePair<RailBlock, RailBlockData>>();
+            foreach (KeyValuePair<RailBlock, RailBlockData> pair in _railBlocks)
+            {
+                if (IsSimpleBlock(pair.Value))
+                {
+                    toConvert.Add(pair);
+                }
             }
 
             foreach (KeyValuePair<RailBlock, RailBlockData> pair in toConvert)
@@ -173,19 +184,23 @@ namespace AdvancedPathfinder.PathSignals
                 _railBlocks[pair.Key] = ((PathRailBlockData) pair.Value).ToSimpleBlockData();
             }
         }
-
+        
         private void CreatePathSignalsData()
         {
             foreach (KeyValuePair<RailBlock, RailBlockData> blockPair in _railBlocks)
             {
-                foreach (RailSignal signal in blockPair.Value.InboundSignals.Keys.ToArray())
-                {
+                CreatePathSignalData(blockPair.Value);
+            }
+        }
 
-                    PathSignalData data = new(signal, blockPair.Value) {StateChanged = OnSignalStateChanged};
-                    _pathSignals.Add(signal, data);
-                    _changedStates.Add(signal);
-                    blockPair.Value.InboundSignals[signal] = data;
-                }
+        private void CreatePathSignalData(RailBlockData blockData)
+        {
+            foreach (RailSignal signal in blockData.InboundSignals.Keys.ToArray())
+            {
+                PathSignalData data = new(signal, blockData) {StateChanged = OnSignalStateChanged};
+                _pathSignals.Add(signal, data);
+                _changedStates.Add(signal);
+                blockData.InboundSignals[signal] = data;
             }
         }
 
@@ -412,6 +427,46 @@ namespace AdvancedPathfinder.PathSignals
         {
             DeleteTrainData(train);
             TryReleaseFullBlock();
+            HighlightReservedPaths();
+        }
+
+        private void BlockRemoving(RailBlock block)
+        {
+            if (_railBlocks.TryGetValue(block, out RailBlockData data))
+            {
+                foreach (RailSignal signal in data.InboundSignals.Keys)
+                {
+                    _pathSignals.Remove(signal);
+                }
+                _railBlocks.Remove(block);
+            }
+            HighlightReservedPaths();
+        }
+
+        private void BlockCreated(RailBlock block)
+        {
+            UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
+            PathRailBlockData blockData = GetOrCreateRailBlockData(block);
+            for (int i = connections.Count - 1; i >= 0; i--)
+            {
+                RailConnection conn = connections[i];
+                RailSignal signal = conn.InnerConnection.Signal;
+                if (signal != null && signal.IsBuilt)
+                {
+                    blockData.InboundSignals.Add(signal, null);
+                    if (conn.Signal != null && conn.Signal.IsBuilt)
+                    {
+                        blockData.OutboundSignals.Add(conn.Signal);
+                    }
+                }
+            }
+
+            if (IsSimpleBlock(blockData))
+            {
+                _railBlocks[block] = blockData.ToSimpleBlockData();
+            }
+            
+            CreatePathSignalData(blockData);
             HighlightReservedPaths();
         }
 

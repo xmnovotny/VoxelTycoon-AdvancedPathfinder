@@ -12,7 +12,9 @@ namespace AdvancedPathfinder
     [HarmonyPatch]
     public class RailBlockHelper: SimpleLazyManager<RailBlockHelper>
     {
-        private Dictionary<RailBlock, PropertyChangedEventHandler<RailBlock, bool>> _blockStateChangeAction = new();
+        private readonly Dictionary<RailBlock, PropertyChangedEventHandler<RailBlock, bool>> _blockStateChangeAction = new();
+        private Action<RailBlock> _blockCreatedAction;
+        private Action<RailBlock> _blockRemovingAction;
         private Stopwatch _stopwatch = new();
 
         public float ElapsedMilliseconds => _stopwatch.ElapsedTicks / 10000f;
@@ -48,6 +50,28 @@ namespace AdvancedPathfinder
             }
         }
 
+        public void RegisterBlockRemovingAction(Action<RailBlock> onBlockRemoving)
+        {
+            _blockRemovingAction -= onBlockRemoving;
+            _blockRemovingAction += onBlockRemoving;
+        }
+
+        public void UnregisterBlockRemovingAction(Action<RailBlock> onBlockRemoving)
+        {
+            _blockRemovingAction -= onBlockRemoving;
+        }
+
+        public void RegisterBlockCreatedAction(Action<RailBlock> onBlockCreated)
+        {
+            _blockCreatedAction -= onBlockCreated;
+            _blockCreatedAction += onBlockCreated;
+        }
+
+        public void UnregisterBlockCreatedAction(Action<RailBlock> onBlockCreated)
+        {
+            _blockCreatedAction -= onBlockCreated;
+        }
+        
         public bool IsBlockOpen(RailBlock block)
         {
             return SimpleManager<PathSignalManager>.Current == null ? block.IsOpen : SimpleManager<PathSignalManager>.Current.IsBlockOpen(block);
@@ -67,9 +91,20 @@ namespace AdvancedPathfinder
             }
         }
 
+        private void OnBlockCreated(RailBlock block)
+        {
+            _blockCreatedAction?.Invoke(block);
+        }
+
+        private void OnBlockRemoving(RailBlock block)
+        {
+            _blockRemovingAction?.Invoke(block);
+        }
+
         [HarmonyPrefix]
         [HarmonyPatch("Value", MethodType.Setter)]
         [HarmonyPatch(typeof(RailBlock))]
+        // ReSharper disable once InconsistentNaming
         private static void RailBlock_setValue_prf(RailBlock __instance, int value)
         {
             CurrentWithoutInit?._stopwatch.Start();
@@ -79,6 +114,25 @@ namespace AdvancedPathfinder
                 CurrentWithoutInit?.OnBlockStateChange(__instance, oldIsOpen, newIsOpen);
             CurrentWithoutInit?._stopwatch.Stop();;
         }
+
+        [HarmonyPrefix]
+        [HarmonyPatch("Remove", MethodType.Setter)]
+        [HarmonyPatch(typeof(RailBlockManager))]
+        // ReSharper disable once InconsistentNaming
+        private static void RailBlockManager_Remove_prf(RailBlock block)
+        {
+            if (CurrentWithoutInit != null)
+                Current.OnBlockRemoving(block);
+        }
         
+        [HarmonyPostfix]
+        [HarmonyPatch("Create", MethodType.Setter)]
+        [HarmonyPatch(typeof(RailBlockManager))]
+        // ReSharper disable once InconsistentNaming
+        private static void RailBlockManager_Create_prf(RailBlock block)
+        {
+            if (CurrentWithoutInit != null)
+                Current.OnBlockCreated(block);
+        }
     }
 }
