@@ -79,7 +79,6 @@ namespace AdvancedPathfinder
 
         internal void PathSignalBlockFreeChanged(RailBlock block, bool isFree)
         {
-            FileLog.Log("PathSignalBlockFreeChanged");
             OnBlockStateChange(block, !isFree, isFree);
         }
 
@@ -116,7 +115,7 @@ namespace AdvancedPathfinder
         }
 
         [HarmonyPrefix]
-        [HarmonyPatch("Remove", MethodType.Setter)]
+        [HarmonyPatch("Remove")]
         [HarmonyPatch(typeof(RailBlockManager))]
         // ReSharper disable once InconsistentNaming
         private static void RailBlockManager_Remove_prf(RailBlock block)
@@ -126,13 +125,13 @@ namespace AdvancedPathfinder
         }
         
         [HarmonyPostfix]
-        [HarmonyPatch("Create", MethodType.Setter)]
+        [HarmonyPatch("Create")]
         [HarmonyPatch(typeof(RailBlockManager))]
         // ReSharper disable once InconsistentNaming
-        private static void RailBlockManager_Create_prf(RailBlock block)
+        private static void RailBlockManager_Create_prf(RailConnection origin)
         {
-            if (CurrentWithoutInit != null)
-                Current.OnBlockCreated(block);
+            if (CurrentWithoutInit != null && origin.Block != null)
+                Current.OnBlockCreated(origin.Block);
         }
     }
 }

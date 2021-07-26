@@ -14,10 +14,10 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (_reservedForTrain != value)
                 {
-                    bool lastIsBlockFree = IsBlockFree;
+//                    bool lastIsBlockFree = IsBlockFree;
                     _reservedForTrain = value;
-                    if (lastIsBlockFree != IsBlockFree)
-                        OnBlockFreeChanged(!lastIsBlockFree);
+//                    if (lastIsBlockFree != IsBlockFree)
+                        OnBlockFreeChanged(IsBlockFree);
                 }
             }
         }
@@ -30,10 +30,11 @@ namespace AdvancedPathfinder.PathSignals
         {
         }
 
-        public SimpleRailBlockData(RailBlock block, Dictionary<RailSignal, PathSignalData> inboundSignals): base(block, inboundSignals)
+        internal SimpleRailBlockData(RailBlockData blockData): base(blockData)
         {
+            
         }
-
+        
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
 //            FileLog.Log($"Try reserve simple path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");

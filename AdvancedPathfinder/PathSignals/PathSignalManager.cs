@@ -221,6 +221,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void OnBlockFreeChanged(RailBlockData data, bool isFree)
         {
+            FileLog.Log($"OnBlockFreeChanged: {isFree}, ({data.GetHashCode():X8})");
             SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.PathSignalBlockFreeChanged(data.Block, isFree);
         }
 
@@ -258,7 +259,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                 (int reservedIdx, int? nextDestinationIdx) pathIds = _reservedPathIndex.GetValueOrDefault(train, (reservedPathIndex, null));
                 pathIds.reservedIdx = reservedPathIndex;
-                FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}, reservedPathIndex: {pathIds.reservedIdx}");
+//                FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}, reservedPathIndex: {pathIds.reservedIdx}");
                 _reservedPathIndex[train] = pathIds;
             }
 
@@ -303,7 +304,7 @@ namespace AdvancedPathfinder.PathSignals
             if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train))
                 return;
             (int reservedIdx, int? nextDestinationIdx) reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, (int.MinValue, null));
-            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}, newFrontIndex {newFrontIndex}, origFrontIndex {path.FrontIndex}, reservedIndex {reservedPathIndex.reservedIdx}");
+//            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}, newFrontIndex {newFrontIndex}, origFrontIndex {path.FrontIndex}, reservedIndex {reservedPathIndex.reservedIdx}");
             PathShrinking(train, path, newFrontIndex + 1, path.FrontIndex, reservedPathIndex.reservedIdx);
             if (reservedPathIndex.reservedIdx > newFrontIndex || reservedPathIndex.nextDestinationIdx > newFrontIndex)
             {
@@ -311,7 +312,7 @@ namespace AdvancedPathfinder.PathSignals
                     reservedPathIndex.nextDestinationIdx = null;
                 if (reservedPathIndex.reservedIdx > newFrontIndex)
                     reservedPathIndex.reservedIdx = newFrontIndex;
-                FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train].reservedIdx} new {newFrontIndex}");
+//                FileLog.Log($"Shrink reserved index: old {_reservedPathIndex[train].reservedIdx} new {newFrontIndex}");
                 _reservedPathIndex[train] = reservedPathIndex;
             }
         }
@@ -704,7 +705,7 @@ namespace AdvancedPathfinder.PathSignals
                 newFrontIndex = _origReservedPathIndex;
             Current?.PathShrinkingFront(__instance, newFrontIndex);
             _origReservedPathIndex = int.MinValue;
-            FileLog.Log($"Shrink front, new front index {_oldPath.IndexOf(__instance[newFrontIndex])}");
+//            FileLog.Log($"Shrink front, new front index {_oldPath.IndexOf(__instance[newFrontIndex])}");
         }
 
         [HarmonyPrefix]
@@ -740,7 +741,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                 (int reservedIdx, int? nextDestinationIdx) idx = Current._reservedPathIndex.GetValueOrDefault(train, (Int32.MinValue, _nextDestinationResultIdx));
                 idx.nextDestinationIdx = _nextDestinationResultIdx + __instance.FrontIndex - 1;
-                FileLog.Log($"New NextDestinationIdx {idx.nextDestinationIdx}");
+//                FileLog.Log($"New NextDestinationIdx {idx.nextDestinationIdx}");
                 Current._reservedPathIndex[train] = idx;
             }
         }
@@ -803,17 +804,17 @@ namespace AdvancedPathfinder.PathSignals
                 result.Add(_origDestination);
                 _deleteResultList = true;
                 __result = true;
-                FileLog.Log($"Skip first part of path rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex}");
+                //FileLog.Log($"Skip first part of path rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex}");
                 return false;
             }
-            FileLog.Log($"Train_TryFindPath_prf: can shrink {_canShrinkReservedPath}");
+            //FileLog.Log($"Train_TryFindPath_prf: can shrink {_canShrinkReservedPath}");
             
             if (!_canShrinkReservedPath && Current != null && origin != __instance.RearBound.Connection.InnerConnection && Current._reservedPathIndex.TryGetValue(__instance, out (int reservedIdx, int? nextDestinationIdx) reserved) &&
                 reserved.reservedIdx >= __instance.FrontBound.ConnectionIndex && reserved.reservedIdx >=___Path.RearIndex && (_skipFirstPart || target != _nextDestination))
             {
                 _origReservedPathIndex = reserved.reservedIdx;
                 origin = ___Path[_origReservedPathIndex];
-                FileLog.Log($"Refind path reservedIndex: origin path index {_oldPath.IndexOf(origin)}, {_origReservedPathIndex}, rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex} nextDestinationIndex {reserved.nextDestinationIdx}");
+                //FileLog.Log($"Refind path reservedIndex: origin path index {_oldPath.IndexOf(origin)}, {_origReservedPathIndex}, rearIndex: {___Path.RearIndex} frontIndex: {___Path.FrontIndex} nextDestinationIndex {reserved.nextDestinationIdx}");
                 _skipFirstPart = false;
             }
 
@@ -825,7 +826,7 @@ namespace AdvancedPathfinder.PathSignals
         // ReSharper disable once InconsistentNaming
         private static void Train_TryFindPath_pof(Train __instance, ref TrackConnection origin, IVehicleDestination target, List<TrackConnection> result)
         {
-            FileLog.Log($"Train_TryFindPath_pof origin index {_oldPath.IndexOf(origin)}, result count {result.Count}");
+            //FileLog.Log($"Train_TryFindPath_pof origin index {_oldPath.IndexOf(origin)}, result count {result.Count}");
             if (_deleteResultList)
             {
                 result.Clear();
@@ -835,7 +836,7 @@ namespace AdvancedPathfinder.PathSignals
             if (_nextDestination != null && target != _nextDestination)
             {
                 _nextDestinationResultIdx = result.Count;
-                FileLog.Log($"Next destination result idx: {_nextDestinationResultIdx}");
+                //FileLog.Log($"Next destination result idx: {_nextDestinationResultIdx}");
             }
         }
 
@@ -862,7 +863,7 @@ namespace AdvancedPathfinder.PathSignals
                     //search only part from destination to next destination
                     _skipFirstPart = true;
                     _origDestination = ___Path[reserved.nextDestinationIdx.Value];
-                    FileLog.Log($"TryFind for SkipFirstPath, origDestination path index: {_oldPath.IndexOf(_origDestination)}");
+                    //FileLog.Log($"TryFind for SkipFirstPath, origDestination path index: {_oldPath.IndexOf(_origDestination)}");
                 }
             }
         }

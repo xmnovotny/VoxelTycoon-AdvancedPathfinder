@@ -32,7 +32,7 @@ namespace AdvancedPathfinder.PathSignals
 
         public SimpleRailBlockData ToSimpleBlockData()
         {
-            return new (Block, InboundSignals);
+            return new (this);
         }
 
         internal override void ReleaseRailSegment(Train train, Rail rail)

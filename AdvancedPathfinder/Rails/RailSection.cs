@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
@@ -27,7 +28,7 @@ namespace AdvancedPathfinder.Rails
             foreach (KeyValuePair<RailBlock, float> pair in _railBlocksLengths)
             {
                 bool isOpen = SimpleLazyManager<RailBlockHelper>.Current.IsBlockOpen(pair.Key); 
-                if (isOpen)
+                if (!isOpen)
                 {
                     result += CalculateCloseBlockLength(pair.Value);
                 }
@@ -35,6 +36,7 @@ namespace AdvancedPathfinder.Rails
                 _railBlocksStates[pair.Key] = isOpen;
             }
 
+            FileLog.Log($"Blocked length {result:N1}, ({this.GetHashCode():X8})");
             _closedBlockLength = result;
 
             return result;
@@ -108,10 +110,13 @@ namespace AdvancedPathfinder.Rails
 
         private void OnBlockStateChange(RailBlock block, bool oldIsOpen, bool newIsOpen)
         {
+            _closedBlockLength = null;
+//            GetClosedBlocksLength();
             if (_closedBlockLength.HasValue && _railBlocksStates.TryGetValue(block, out bool oldState) && oldState != newIsOpen && _railBlocksLengths.TryGetValue(block, out float length))
             {
+                FileLog.Log($"Block state change, new state: {newIsOpen}");
                 float value = CalculateCloseBlockLength(length);
-                if (!newIsOpen)
+                if (newIsOpen)
                     _closedBlockLength -= value;
                 else
                     _closedBlockLength += value;

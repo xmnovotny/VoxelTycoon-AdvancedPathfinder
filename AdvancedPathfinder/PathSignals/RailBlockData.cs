@@ -23,10 +23,10 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (_isFullBlocked != value)
                 {
-                    bool lastIsBlockFree = IsBlockFree;
+//                    bool lastIsBlockFree = IsBlockFree;
                     _isFullBlocked = value;
-                    if (lastIsBlockFree != IsBlockFree)
-                        OnBlockFreeChanged(!lastIsBlockFree);
+//                    if (lastIsBlockFree != IsBlockFree)
+                        OnBlockFreeChanged(IsBlockFree);
                 }
             }
         } //no individual path reservation allowed, clears when whole block becomes free of vehicles
@@ -51,13 +51,16 @@ namespace AdvancedPathfinder.PathSignals
 
         protected void OnBlockFreeChanged(bool isFree)
         {
+            FileLog.Log("RailBlockData.OnBlockFreeChanged");
             _blockFreeChangedEvent?.Invoke(this, isFree);
         }
 
-        protected RailBlockData(RailBlock block, Dictionary<RailSignal, PathSignalData> inboundSignals): this(block, true)
+        protected RailBlockData(RailBlockData blockData): this(blockData.Block)
         {
-            InboundSignals.AddRange(inboundSignals);
+            InboundSignals.AddRange(blockData.InboundSignals);
+            _blockFreeChangedEvent =blockData._blockFreeChangedEvent;
         }
+        
         private RailBlockData(RailBlock block, bool _)
         {
             Block = block;
