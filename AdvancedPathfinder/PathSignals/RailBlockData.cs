@@ -51,7 +51,7 @@ namespace AdvancedPathfinder.PathSignals
 
         protected void OnBlockFreeChanged(bool isFree)
         {
-            FileLog.Log("RailBlockData.OnBlockFreeChanged");
+            //FileLog.Log("RailBlockData.OnBlockFreeChanged");
             _blockFreeChangedEvent?.Invoke(this, isFree);
         }
 

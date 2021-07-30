@@ -36,7 +36,7 @@ namespace AdvancedPathfinder.Rails
                 _railBlocksStates[pair.Key] = isOpen;
             }
 
-            FileLog.Log($"Blocked length {result:N1}, ({this.GetHashCode():X8})");
+            //FileLog.Log($"Blocked length {result:N1}, ({this.GetHashCode():X8})");
             _closedBlockLength = result;
 
             return result;
