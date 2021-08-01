@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -107,6 +108,58 @@ namespace AdvancedPathfinder.PathSignals
             }
 
             return false;
+        }
+
+        /**
+         * Only for reservation path after stop (=with reserved beyond path)
+         * Will reserve path within this block from rearbound to the end of the block
+         * @return path index of last reserved track 
+         */
+        internal int? TryReserveUpdatedPathInsteadOfBeyond(Train train, PathCollection path)
+        {
+            if (!_reservedBeyondPath.TryGetValue(train,
+                out (PooledHashSet<Rail> rails, Rail lastPathRail) beyondPathList)) return null;
+            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedPath))
+                return null;
+            
+            int idx = train.RearBound.ConnectionIndex;
+            RailConnection connection = (RailConnection)path[idx];
+            while (connection != null && connection.Block != Block && idx<path.FrontIndex)
+            {
+                connection = (RailConnection)path[++idx];
+            }
+
+            if (connection == null || connection.Block != Block)
+                return null;
+
+            using PooledList<RailConnection> connections = PooledList<RailConnection>.Take();
+            while (connection != null && connection.Block == Block && idx<path.FrontIndex)
+            {
+                connections.Add(connection);
+                connection = (RailConnection)path[++idx];
+            }
+
+            if (idx==path.FrontIndex || connection == null)
+                return null; //no new block = path is not to the end of the own block
+
+            ReleaseBeyondPath(train);
+
+            foreach (RailConnection railConnection in connections)
+            {
+                Rail rail = railConnection.Track;
+                if (rail != null && !reservedPath.Contains(rail))
+                {
+                    reservedPath.Add(rail);
+                    _blockedRails.AddIntToDict(rail, 1);
+                    for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
+                    {
+                        Rail linkedRail = rail.GetLinkedRail(i);
+                        _blockedLinkedRails.AddIntToDict(linkedRail, 1);
+                    }
+                }
+            }
+
+            return idx-1;
         }
 
         private void ReleaseRailSegmentInternal(Rail rail)

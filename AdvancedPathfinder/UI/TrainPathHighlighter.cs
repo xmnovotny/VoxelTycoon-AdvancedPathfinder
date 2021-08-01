@@ -8,6 +8,7 @@ using UnityEngine;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using XMNUtils;
 
 namespace AdvancedPathfinder.UI
 {
@@ -25,7 +26,15 @@ namespace AdvancedPathfinder.UI
             Color.yellow.WithAlpha(0.4f)
         };
 
-        private int _colorIndex = 0;
+        private readonly Dictionary<Color, int> _usedColors = new();
+
+        public TrainPathHighlighter()
+        {
+            foreach (Color color in _colors)
+            {
+                _usedColors.Add(color, 0);
+            }
+        }
 
         public void ShowFor(Train train)
         {
@@ -44,6 +53,7 @@ namespace AdvancedPathfinder.UI
             if (_data.TryGetValue(train, out TrainData data))
             {
                 data.ReleaseHighlighters();
+                _usedColors.AddIntToDict(data.Color, -1);
                 _data.Remove(train);
                 
             }
@@ -59,8 +69,24 @@ namespace AdvancedPathfinder.UI
 
         private Color GetColor()
         {
-            _colorIndex = (_colorIndex + 1) % _colors.Length;
-            return _colors[_colorIndex];
+            Color minColor = _colors[0];
+            int min = Int32.MaxValue;
+            foreach (KeyValuePair<Color, int> colorPair in _usedColors)
+            {
+                if (colorPair.Value == 0)
+                {
+                    minColor = colorPair.Key;
+                    break;
+                }
+
+                if (colorPair.Value < min)
+                {
+                    min = colorPair.Value;
+                    minColor = colorPair.Key;
+                }
+            }
+            _usedColors.AddIntToDict(minColor, 1);
+            return minColor;
         }
         
         private PathCollection GetTrainPath(Train train)
@@ -79,6 +105,8 @@ namespace AdvancedPathfinder.UI
             private readonly Color _color;
             private float _lastUpdated;
             public bool IsDirty = true;
+            public Color Color => _color;
+
 
             public TrainData(Train train, [NotNull] PathCollection path, Color color)
             {

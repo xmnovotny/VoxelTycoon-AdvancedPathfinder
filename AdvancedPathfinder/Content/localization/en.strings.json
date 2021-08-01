@@ -1,3 +1,5 @@
 ﻿{
-  "pathfinder_mod/placeholder": ""
+  "advanced_pathfinder_mod/highlight_train_path": "Highlight train path when train window is opened",
+  "advanced_pathfinder_mod/highlight_reserved_path": "Highlight reserved paths from path signal",
+  "advanced_pathfinder_mod/highlight_reserved_path_extended": "Additional highlighting for path signals (for debug use)"
 }

@@ -5,6 +5,7 @@ using System.Linq;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
 using JetBrains.Annotations;
+using ModSettingsUtils;
 using UnityEngine;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
@@ -16,6 +17,10 @@ namespace AdvancedPathfinder.PathSignals
     [HarmonyPatch]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
+        //TODO: adjust reserved path index after removing track within reserved path
+        //TODO: Fix reservation of last segment when reserving instead of beyond path
+        //TODO: Fix correct platform penalty when there is a path block within platform
+        //TODO: Test removing rail segment within reserved path
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
@@ -65,6 +70,7 @@ namespace AdvancedPathfinder.PathSignals
             Behaviour.OnLateUpdateAction -= OnLateUpdate;
             Behaviour.OnLateUpdateAction += OnLateUpdate;
             Stopwatch sw = Stopwatch.StartNew();
+            ModSettings<Settings>.Current.Subscribe(OnSettingsChanged);
             FindBlocksAndSignals();
             sw.Stop();
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
@@ -76,6 +82,15 @@ namespace AdvancedPathfinder.PathSignals
         {
             SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.UnregisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.UnregisterBlockRemovingAction(BlockRemoving);
+        }
+
+        private void OnSettingsChanged()
+        {
+            if (!ModSettings<Settings>.Current.HighlightReservedPaths)
+            {
+                HideHighlighters();
+            } else 
+                _highlightDirty = true;
         }
 
         private void OnLateUpdate()
@@ -492,9 +507,29 @@ namespace AdvancedPathfinder.PathSignals
             HighlightReservedPaths();
         }
 
+        private void AfterUpdateDestinationAndPath(PathCollection path, Train train)
+        {
+            RailConnection conn = (RailConnection) train.FrontBound.Connection;
+
+            if (conn == null || conn.Block == null) return;
+
+            if (_railBlocks.GetValueOrDefault(conn.Block) is PathRailBlockData blockData)
+            {
+                int? reservedIndex = blockData.TryReserveUpdatedPathInsteadOfBeyond(train, path);
+                if (reservedIndex.HasValue)
+                {
+                    (int reservedIdx, int? nextDestinationIdx) reserved = _reservedPathIndex.GetValueOrDefault(train);
+                    if (reservedIndex > reserved.reservedIdx)
+                        reserved.reservedIdx = reservedIndex.Value;
+                    _reservedPathIndex[train] = reserved;
+                }
+            }
+        }
+
         #region DEBUG
 
         private readonly HashSet<Highlighter> _highlighters = new();
+
         private float _lastHighlightUpdate = 0;
 
         private void HideHighlighters()
@@ -539,6 +574,8 @@ namespace AdvancedPathfinder.PathSignals
 
         private void HighlightReservedPaths()
         {
+            if (!ModSettings<Settings>.Current.HighlightReservedPaths)
+                return;
             if (_lastHighlightUpdate + 1f >= Time.time)
             {
                 _highlightDirty = true;
@@ -561,7 +598,7 @@ namespace AdvancedPathfinder.PathSignals
                         foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
                         {
                             if (railPair.Value > 0)
-                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f), 0.43f);
+                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f), 0.42f);
                         }
 
                         foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
@@ -574,7 +611,7 @@ namespace AdvancedPathfinder.PathSignals
                         {
                             foreach (Rail rail in railPair.Value.rails)
                             {
-                                HighlightRail(rail, Color.blue.WithAlpha(0.9f), 0.45f);
+                                HighlightRail(rail, Color.blue.WithAlpha(0.9f), 0.44f);
                             }
                         }
 
@@ -593,7 +630,8 @@ namespace AdvancedPathfinder.PathSignals
                 }
             }
 
-            HighlightReservedBounds();
+            if (ModSettings<Settings>.Current.HighlightReservedPathsExtended)
+                HighlightReservedBounds();
         }
 
         #endregion
@@ -634,6 +672,7 @@ namespace AdvancedPathfinder.PathSignals
         #region TrainSignalObstacle
 
         private static bool _isDetectingObstacle = false;
+
         private static PathCollection _trainPath = null;
 
         [HarmonyPrefix]
@@ -769,7 +808,7 @@ namespace AdvancedPathfinder.PathSignals
                 Current._reservedPathIndex[train] = idx;
             }
         }
-        
+
         [HarmonyFinalizer]
         [HarmonyPatch(typeof(PathCollection), "AddToFront")]
         [HarmonyPatch(new Type[] {typeof(IList<TrackConnection>), typeof(int)})]
@@ -789,11 +828,17 @@ namespace AdvancedPathfinder.PathSignals
         #region PathUpdate
 
         private static bool _canShrinkReservedPath = false;
+
         private static int _origReservedPathIndex;
+
         private static bool _skipFirstPart;
+
         private static IVehicleDestination _nextDestination;
+
         private static TrackConnection _origDestination;
+
         private static int? _nextDestinationResultIdx;
+
         private static bool _deleteResultList;
 
         [HarmonyPrefix]
@@ -861,6 +906,17 @@ namespace AdvancedPathfinder.PathSignals
             {
                 _nextDestinationResultIdx = result.Count;
                 //FileLog.Log($"Next destination result idx: {_nextDestinationResultIdx}");
+            }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Vehicle), "TryUpdateDestinationAndPath")]
+        // ReSharper disable once InconsistentNaming
+        private static void Vehicle_TryUpdateDestinationAndPath_pof(Vehicle __instance, PathCollection ___Path)
+        {
+            if (Current != null && __instance is Train train)
+            {
+                Current.AfterUpdateDestinationAndPath(___Path, train);
             }
         }
 

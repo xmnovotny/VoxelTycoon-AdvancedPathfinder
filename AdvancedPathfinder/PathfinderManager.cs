@@ -454,12 +454,5 @@ namespace AdvancedPathfinder
             return connection != null ? _connectionToNode.GetValueOrDefault(connection) : null;
         }
         
- /*       [HarmonyPostfix]
-        [HarmonyPatch(typeof(Train), "TryFindPath")]
-        private static void Train_TryFindPath_pof(Train __instance)
-        {
-            Manager<RailPathfinderManager>.Current.Find();
-        }*/
-        
     }
 }

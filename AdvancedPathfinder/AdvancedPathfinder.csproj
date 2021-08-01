@@ -98,6 +98,18 @@
     <Compile Include="..\..\Utils\CSharp9Helper.cs">
       <Link>Content\Utils\CSharp9Helper.cs</Link>
     </Compile>
+    <Compile Include="..\..\Utils\ModSettings\ModSettings.cs">
+      <Link>Content\ModSettings\ModSettings.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Utils\ModSettings\ModSettingsWindow.cs">
+      <Link>Content\ModSettings\ModSettingsWindow.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Utils\ModSettings\ModSettingsWindowManager.cs">
+      <Link>Content\ModSettings\ModSettingsWindowManager.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Utils\ModSettings\ModSettingsWindowPage.cs">
+      <Link>Content\ModSettings\ModSettingsWindowPage.cs</Link>
+    </Compile>
     <Compile Include="..\..\Utils\SimpleLazyManager.cs">
       <Link>Content\Utils\SimpleLazyManager.cs</Link>
     </Compile>

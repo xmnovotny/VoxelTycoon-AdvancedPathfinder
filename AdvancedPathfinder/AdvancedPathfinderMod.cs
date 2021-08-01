@@ -3,6 +3,7 @@ using AdvancedPathfinder.PathSignals;
 using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
+using ModSettingsUtils;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using VoxelTycoon;
@@ -34,6 +35,7 @@ namespace AdvancedPathfinder
 
         protected override void OnGameStarted()
         {
+            ModSettingsWindowManager.Current.Register<SettingsWindowPage>("AdvancedPathfinder"/* this.GetType().Name*/, "Path signals & improved pathfinder");
             Manager<RailPathfinderManager>.Initialize();
             SimpleManager<PathSignalManager>.Initialize();
         }
@@ -84,6 +86,8 @@ namespace AdvancedPathfinder
         [HarmonyPatch(typeof(VehicleWindow), "Initialize")]
         private static void VehicleWindow_Initialize_pof(Vehicle vehicle)
         {
+            if (!ModSettings<Settings>.Current.HighlightTrainPaths)
+                return;
             if (vehicle is Train train)
             {
                 LazyManager<TrainPathHighlighter>.Current.ShowFor(train);
