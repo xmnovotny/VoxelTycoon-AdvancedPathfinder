@@ -1,0 +1,35 @@
+Path signals & Improved train pathfinder 0.9 [b]beta[/b]
+
+This mod replaces block signaling system by path based signaling and provides improved path finding for trains
+
+[h2]Path signals[/h2]
+[b]Features[/b]
+[list]
+[*] Instead of allowing only one train in the signal block, each train reserves own path from one to the next signal.
+[*] Signal is red by default, only when there is a path reserved for a train it will turn to green
+[*] Ability to highlight reserved paths 
+[/list]
+
+[b]Planned features[/b]
+[list]
+[*] Differentiate semaphore and light signals by slightly different behaviour - 
+        semaphore will clear reserved path after rear of the train passes last switch in the block and there will be a small delay before a new path can be reserved
+        light signal will clear each path segment individually and there will be no delay
+[*] Allow creating multi-aspect signals based on path reserved from signal 
+[*] Real pre-signal which will have signalling based on the next signal (e.g. green-yellow-red sled navestidel) 
+[/list]
+
+[h2]Improved train pathfinder[/h2]
+Pathfinder is based on Dijkstra algorithm for finding the best path.
+[b]Features[/b]
+[list]
+[*] Try avoid go through stations, when there is a station bypass
+[*] Prefer tracks with less curves
+[*] Configurable highlighting train path
+[/list]
+[b]Planned features[/b]
+[list]
+[*] Calculating best path based on track speed restrictions, slopes, train length and acceleration
+[*] Select best station platform based on potential colliding paths on arriving and departing
+[*] Lot of optimization to improve performance 
+[/list]
