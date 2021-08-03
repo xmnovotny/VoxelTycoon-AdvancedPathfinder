@@ -95,17 +95,17 @@ namespace AdvancedPathfinder.PathSignals
                 for (int i = 0; i <= 1; i++)
                 {
                     RailSignal signal = rail.GetConnection(i).Signal;
-                    if (signal == null || !InboundSignals.TryGetValue(signal, out PathSignalData signalData))
+                    if (ReferenceEquals(signal, null) || !signal.IsBuilt || !InboundSignals.TryGetValue(signal, out PathSignalData signalData))
                         continue;
                         
-                    if (signalData.ReservedForTrain == train)
+                    if (ReferenceEquals(signalData.ReservedForTrain, train))
                     {
                         signalData.ReservedForTrain = null;
 //                        FileLog.Log($"ReleasedInboundSignal {signalData.GetHashCode():X8}");
                     }
                     else
                     {
-                        if (signalData.ReservedForTrain != null)
+                        if (!ReferenceEquals(signalData.ReservedForTrain, null))
                             FileLog.Log("Reserved for another train");
                     }
 

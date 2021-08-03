@@ -119,6 +119,8 @@ namespace AdvancedPathfinder.UI
             {
                 foreach (Highlighter highlighter in _usedHighlighters.Values)
                 {
+                    if (highlighter == null)
+                        continue;
                     highlighter.gameObject.SetActive(false);
                 }
                 _usedHighlighters.Clear();
@@ -151,13 +153,17 @@ namespace AdvancedPathfinder.UI
                 }
 
                 foreach (RailConnection connection in _tmpToRemoveHashSet)
-                {
+                {   
+                    if (!connection.Track.IsBuilt)
+                        continue;
                     _usedHighlighters[connection].gameObject.SetActive(false);
                     _usedHighlighters.Remove(connection);
                 }
                 
                 foreach (RailConnection conn in _tmpToAddHashSet)
                 {
+                    if (!conn.Track.IsBuilt)
+                        continue;
                     _usedHighlighters.Add(conn, hlMan.ForOneTrack(conn.Track, _color, 0.2f));
                 }
 

@@ -54,10 +54,11 @@ namespace AdvancedPathfinder.PathSignals
 
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
-            if (ReservedForTrain == train)
+ //           FileLog.Log($"Releasing simple block {GetHashCode():X}");
+            if (ReferenceEquals(ReservedForTrain, train))
             {
                 ReleaseInboundSignal(train, rail);
-                if (Block.Value == 0 && _reservedSignal?.ReservedForTrain == null)
+                if ((Block.Value == 0 || IsFullBlocked) && _reservedSignal?.ReservedForTrain == null)
                 {
 //                    FileLog.Log($"Released simple block {GetHashCode():X}");
                     ReservedForTrain = null;

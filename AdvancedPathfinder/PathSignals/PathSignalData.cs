@@ -50,6 +50,12 @@ namespace AdvancedPathfinder.PathSignals
                 ReservedForTrain = null;
         }
 
+        public void TrainPassingSignal(Train train)
+        {
+            if (_reservedForTrain != train) //train passed signal that is not reserved for it = set block as fully blocked
+                BlockData.FullBlock();
+        }
+
         public static bool CheckIsChainSignal([NotNull] RailSignal signal)
         {
             return signal is ChainBlockRailSignal;

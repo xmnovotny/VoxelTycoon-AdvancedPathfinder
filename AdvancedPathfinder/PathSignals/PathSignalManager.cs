@@ -8,6 +8,7 @@ using JetBrains.Annotations;
 using ModSettingsUtils;
 using UnityEngine;
 using VoxelTycoon;
+using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
@@ -18,15 +19,19 @@ namespace AdvancedPathfinder.PathSignals
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
         //TODO: adjust reserved path index after removing track within reserved path
-        //TODO: Fix reservation of last segment when reserving instead of beyond path
         //TODO: Fix correct platform penalty when there is a path block within platform
         //TODO: Test removing rail segment within reserved path
+        //TODO: Remove calling original pathfinding
+        //TODO: Save and restore reserved paths
+        //TODO: optimize == operators on RailBlocks
+        //TODO: Moving to depot is not functional
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new(); //for delay of passing signal 
         private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
         private bool _highlightDirty = true;
+        private readonly PathCollection _detachingPathCache = new();
 
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -84,6 +89,21 @@ namespace AdvancedPathfinder.PathSignals
             SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.UnregisterBlockRemovingAction(BlockRemoving);
         }
 
+        internal void Write(StateBinaryWriter writer)
+        {
+            WriteReservedPathIndexes(writer);
+        }
+
+        private void WriteReservedPathIndexes(StateBinaryWriter writer)
+        {
+            foreach (KeyValuePair<Train,(int reservedIdx, int? nextDestinationIdx)> pair in _reservedPathIndex)
+            {
+                writer.WriteInt(pair.Key.Id);
+                writer.WriteInt(pair.Value.reservedIdx);
+                writer.WriteInt(pair.Value.nextDestinationIdx ?? int.MinValue);
+            }
+        }
+
         private void OnSettingsChanged()
         {
             if (!ModSettings<Settings>.Current.HighlightReservedPaths)
@@ -107,6 +127,14 @@ namespace AdvancedPathfinder.PathSignals
             data.TrainPassedSignal(train);
         }
 
+        private void TrainPassingSignal(Train train, RailSignal signal)
+        {
+//            FileLog.Log("Train passed signal");
+            if (!_pathSignals.TryGetValue(signal, out PathSignalData data))
+                throw new InvalidOperationException("No data for signal.");
+            data.TrainPassingSignal(train);
+        }
+
         private void FindBlocksAndSignals()
         {
             HashSet<RailSignal> signals = TrackHelper.GetAllRailSignals();
@@ -128,6 +156,15 @@ namespace AdvancedPathfinder.PathSignals
 
             DetectSimpleBlocks();
             CreatePathSignalsData();
+            
+            //check all starting tracks for blocks, that is not processed (train depots...)
+            HashSet<RailConnection> startingConnections = new();
+            TrackHelper.GetStartingConnections<Rail, RailConnection>(startingConnections);
+            foreach (RailConnection connection in startingConnections)
+            {
+                if (!ReferenceEquals(connection.Block, null) && !_railBlocks.ContainsKey(connection.Block))
+                    BlockCreated(connection.Block);
+            }
         }
 
         private bool IsSimpleBlock(RailBlockData blockData)
@@ -300,6 +337,7 @@ namespace AdvancedPathfinder.PathSignals
             if (railConn.Signal != null)
             {
                 _passedSignals.Add(train, railConn.Signal);
+                TrainPassingSignal(train, railConn.Signal);
             }
         }
 
@@ -354,12 +392,12 @@ namespace AdvancedPathfinder.PathSignals
                 RailConnection currConnection = (RailConnection) path[index];
                 if (!usedTracks.Add(currConnection.Track))
                 {
-                    //path has duplicity connection, this is second round = skip releasing segments
-                    break;
+                    //path has duplicity connections, this is second round = skip releasing segment
+                    continue;
                 }
                 if (currBlockData?.Block != currConnection.Block)
                 {
-                    currBlockData = GetBlockData(currConnection.Block);
+                    currBlockData = ReferenceEquals(currConnection.Block, null) ? null : GetBlockData(currConnection.Block);
                 }
 
                 if (currBlockData != null)
@@ -372,10 +410,13 @@ namespace AdvancedPathfinder.PathSignals
                 currConnection = currConnection.InnerConnection;
                 if (currBlockData?.Block != currConnection.Block)
                 {
-                    currBlockData = GetBlockData(currConnection.Block);
-                    currBlockData.ReleaseRailSegment(train, currConnection.Track);
-                    if (reservedIndex >= index)
-                        currBlockData.FullBlock();
+                    currBlockData = ReferenceEquals(currConnection.Block, null) ? null : GetBlockData(currConnection.Block);
+                    if (currBlockData != null)
+                    {
+                        currBlockData.ReleaseRailSegment(train, currConnection.Track);
+                        if (reservedIndex >= index)
+                            currBlockData.FullBlock();
+                    }
                 }
             }
 
@@ -432,8 +473,10 @@ namespace AdvancedPathfinder.PathSignals
         
         private void PathClearing(PathCollection path)
         {
+//            FileLog.Log("Path clearing");
             if (path.Count > 0 && _pathToTrain.TryGetValue(path, out Train train))
             {
+//                FileLog.Log("Path cleared");
                 PathShrinking(train, path, path.RearIndex, path.FrontIndex);
                 _pathToTrain.Remove(path);
             }
@@ -447,21 +490,37 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainDetached(Train train)
         {
+            if (_detachingPathCache.Count > 0)
+            {
+//                FileLog.Log("Path cleared");
+                PathShrinking(train, _detachingPathCache, _detachingPathCache.RearIndex, _detachingPathCache.FrontIndex);
+                _detachingPathCache.Clear();
+            }
             DeleteTrainData(train);
             TryReleaseFullBlock();
             HighlightReservedPaths();
+        }
+
+        private void TrainDetaching(Train train, PathCollection path)
+        {
+            _detachingPathCache.Clear();
+            for (int i = path.RearIndex; i <= path.FrontIndex; i++)
+            {
+                _detachingPathCache.AddToFront(path[i]);
+            }
+            _pathToTrain.Remove(path);
         }
 
         private void BlockRemoving(RailBlock block)
         {
             if (_railBlocks.TryGetValue(block, out RailBlockData data))
             {
-                FileLog.Log($"Block removing {data.GetHashCode():X8}");
+//                FileLog.Log($"Block removing {data.GetHashCode():X8}");
                 using PooledList<Train> passed = PooledList<Train>.Take(); 
                 foreach (RailSignal signal in data.InboundSignals.Keys)
                 {
                     _pathSignals.Remove(signal);
-                    FileLog.Log($"Removed signal {signal.GetHashCode():X8}");
+//                    FileLog.Log($"Removed signal {signal.GetHashCode():X8}");
                     passed.AddRange(from pair in _passedSignals where pair.Value == signal select pair.Key);
                     _changedStates.Add(signal);
                 }
@@ -483,7 +542,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                 RailConnection conn = connections[i];
                 RailSignal signal = conn.InnerConnection.Signal;
-                if (signal != null && signal.IsBuilt)
+                if (!ReferenceEquals(signal, null) && signal.IsBuilt)
                 {
                     blockData.InboundSignals.Add(signal, null);
                     FileLog.Log($"Added signal {signal.GetHashCode():X8}");
@@ -547,6 +606,8 @@ namespace AdvancedPathfinder.PathSignals
 
         private void HighlightRail(Rail rail, Color color, float halfWidth = 0.5f)
         {
+            if (!rail.IsBuilt)
+                return;
             RailConnectionHighlighter man = LazyManager<RailConnectionHighlighter>.Current;
             _highlighters.Add(man.ForOneTrack(rail, color, halfWidth));
         }
@@ -729,7 +790,20 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (Current != null && __instance is Train train)
             {
+                FileLog.Log("TrainDetached");
                 Current.TrainDetached(train);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(TrackUnit), "Detach")]
+        // ReSharper disable once InconsistentNaming
+        private static void TrackUnit_Detach_prf(TrackUnit __instance, PathCollection ___Path)
+        {
+            if (Current != null && __instance is Train train)
+            {
+                FileLog.Log("TrainDetaching");
+                Current.TrainDetaching(train, ___Path);
             }
         }
 
@@ -746,6 +820,7 @@ namespace AdvancedPathfinder.PathSignals
         // ReSharper disable once InconsistentNaming
         private static void PathCollection_Clear_prf(PathCollection __instance)
         {
+            FileLog.Log("PathCollection.Clear");
             Current?.PathClearing(__instance);
         }
 

@@ -10,6 +10,8 @@ namespace AdvancedPathfinder.Rails
 {
     public class RailPathfinderManager: PathfinderManager<RailPathfinderManager, Rail, RailConnection, RailSection, RailPathfinderNode, RailPathfinderEdge>
     {
+        //TODO: Optimize checking direction of path from starting connection to the first node
+        //TODO: refresh highlighted path after detaching a train
         private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
@@ -48,6 +50,8 @@ namespace AdvancedPathfinder.Rails
             RailConnectionHighlighter hlMan = LazyManager<RailConnectionHighlighter>.Current; 
             foreach (Rail rail in unprocessedTracks)
             {
+                if (!rail.IsBuilt)
+                    return;
                 Highlighter hl = hlMan.ForOneTrack(rail, Color.red);
                 hl.transform.SetParent(rail.transform);
             }
@@ -61,6 +65,25 @@ namespace AdvancedPathfinder.Rails
             Rail rail = connection.Track;
             hl.transform.SetParent(rail.transform);
             return hl;
+        }
+
+        protected override bool TestPathToFirstNode(List<TrackConnection> connections)
+        {
+            foreach (TrackConnection connection in connections)
+            {
+                if (connection is RailConnection railConn)
+                {
+                    RailSignal signal = railConn.InnerConnection.Signal; //opposite signal
+                    RailSignal signal2 = railConn.Signal;
+                    if (!ReferenceEquals(signal, null) && signal.IsBuilt && (ReferenceEquals(signal2, null) || signal2.IsBuilt == false))
+                    {
+                        //only oposite signal = wrong direction
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         private void OnRailsChanged(IReadOnlyList<Rail> newRails, IReadOnlyList<Rail> removedRails)

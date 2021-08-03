@@ -36,6 +36,7 @@ namespace AdvancedPathfinder.PathSignals
             return new (this);
         }
 
+        // ReSharper restore Unity.PerformanceCriticalContext
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
 //            FileLog.Log($"ReleaseSegmentStart, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
@@ -75,6 +76,7 @@ namespace AdvancedPathfinder.PathSignals
             data.rails.Dispose();
         }
 
+        // ReSharper restore Unity.PerformanceCriticalContext
         internal override bool TryReservePath(Train train, PathCollection path, int startIndex, out int reservedIndex)
         {
 //            FileLog.Log($"Try reserve path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
@@ -88,7 +90,7 @@ namespace AdvancedPathfinder.PathSignals
                 using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
                 if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                     return false;
-                if (_lastEndSignal != null)
+                if (!ReferenceEquals(_lastEndSignal, null))
                 {
                     PathSignalData nextSignalData = SimpleManager<PathSignalManager>.SafeCurrent.GetPathSignalData(_lastEndSignal);
                     RailBlockData nextBlockData = nextSignalData.BlockData;
@@ -110,6 +112,7 @@ namespace AdvancedPathfinder.PathSignals
             return false;
         }
 
+        // ReSharper restore Unity.PerformanceCriticalContext
         /**
          * Only for reservation path after stop (=with reserved beyond path)
          * Will reserve path within this block from rearbound to the end of the block
@@ -142,12 +145,17 @@ namespace AdvancedPathfinder.PathSignals
             if (idx==path.FrontIndex || connection == null)
                 return null; //no new block = path is not to the end of the own block
 
+            if (ReferenceEquals(connection.InnerConnection.Block, Block))
+            {
+                //reserve last segment of path (it has right block on the inner connection)
+                connections.Add(connection);
+            } 
             ReleaseBeyondPath(train);
 
             foreach (RailConnection railConnection in connections)
             {
                 Rail rail = railConnection.Track;
-                if (rail != null && !reservedPath.Contains(rail))
+                if (!ReferenceEquals(rail, null) && rail.IsBuilt && !reservedPath.Contains(rail))
                 {
                     reservedPath.Add(rail);
                     _blockedRails.AddIntToDict(rail, 1);
@@ -184,7 +192,7 @@ namespace AdvancedPathfinder.PathSignals
         
         private bool CanReserveOwnPath([NotNull] PathCollection path, int startIndex, PathSignalData startSignalData, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> cacheList = null)
         {
-            if (startSignalData.ReservedForTrain != null)
+            if (!ReferenceEquals(startSignalData.ReservedForTrain, null))
             {
                 return false;
             }
@@ -275,21 +283,25 @@ namespace AdvancedPathfinder.PathSignals
             {
                 connection = (RailConnection) path[index];
                 Rail rail = connection.Track;
-                if (rail == lastRail)
-                    FileLog.Log("LastRail = rail");
-                lastRail = rail;
-                if (connection.Block != Block)
-                    throw new InvalidOperationException("Connection is from another block");
-                yield return (rail, false, false);
-                for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
+                if (rail.IsBuilt)
                 {
-                    yield return (rail.GetLinkedRail(j), true, false);
-                }
+                    if (rail == lastRail)
+                        FileLog.Log("LastRail = rail");
+                    lastRail = rail;
+                    if (connection.Block != Block)
+                        throw new InvalidOperationException("Connection is from another block");
+                    yield return (rail, false, false);
+                    for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
+                    {
+                        yield return (rail.GetLinkedRail(j), true, false);
+                    }
 
-                if (index != startIndex && connection.Signal != null || connection.InnerConnection.Signal != null)
-                {
-                    _lastEndSignal = connection.Signal;
-                    yield break;
+                    if (index != startIndex && (!ReferenceEquals(connection.Signal, null) && connection.Signal.IsBuilt || 
+                        !ReferenceEquals(connection.InnerConnection.Signal, null) && connection.InnerConnection.Signal.IsBuilt))
+                    {
+                        _lastEndSignal = connection.Signal;
+                        yield break;
+                    }
                 }
 
                 _lastPathIndex = ++index;
@@ -307,7 +319,8 @@ namespace AdvancedPathfinder.PathSignals
                 foreach (TrackConnection trackConnection in connection.InnerConnection.OuterConnections)
                 {
                     RailConnection outerConnection = (RailConnection) trackConnection;
-                    if (outerConnection.Signal != null || outerConnection.InnerConnection.Signal != null)
+                    if (!ReferenceEquals(outerConnection.Signal, null) && outerConnection.Signal.IsBuilt 
+                        || !ReferenceEquals(outerConnection.InnerConnection.Signal, null) && outerConnection.InnerConnection.Signal.IsBuilt)
                         continue;
                     Rail rail = outerConnection.Track;
                     yield return (rail, false, true);

@@ -131,6 +131,12 @@ namespace AdvancedPathfinder
                 edges[i].GetConnections(result);
             }
         }
+
+        /** will test connections from starting connection to the first node for right direction */
+        protected virtual bool TestPathToFirstNode(List<TrackConnection> connections)
+        {
+            return true;
+        }
         
         protected bool FindPath([NotNull] TTrackConnection origin, [NotNull] IVehicleDestination target,
             object edgeSettings, List<TrackConnection> result, IReadOnlyCollection<TPathfinderNode> nodesList = null)
@@ -149,6 +155,11 @@ namespace AdvancedPathfinder
             if (result != null && endNode != null)
             {
                 FindSection(origin)?.GetConnectionsToNextNode(origin, result);
+                if (!TestPathToFirstNode(result))
+                {
+                    result.Clear();
+                    return false;
+                }
                 FillFoundedPath(originNode, endNode, result);
             }
             sw.Stop();
@@ -287,6 +298,8 @@ namespace AdvancedPathfinder
         {
             foreach (TTrackConnection connection in node.InboundConnections)
             {
+                if (!connection.Track.IsBuilt)
+                    continue;
                 _highlighters.Add(HighlightConnection(connection, true, color));
             }
         }
@@ -315,6 +328,8 @@ namespace AdvancedPathfinder
         {
             foreach (Highlighter highlighter in _highlighters)
             {
+                if (highlighter == null)
+                    continue;
                 highlighter.gameObject.SetActive(false);
             }
             _highlighters.Clear();
@@ -326,6 +341,8 @@ namespace AdvancedPathfinder
             section.GetConnectionsInDirection(PathDirection.Backward, connections);
             foreach (TrackConnection connection in connections)
             {
+                if (!connection.Track.IsBuilt)
+                    continue;
                 _highlighters.Add(HighlightConnection((TTrackConnection)connection, false, color));
             }
         }
@@ -355,6 +372,8 @@ namespace AdvancedPathfinder
             HideHighlighters();
             foreach (TrackConnection connection in connections)
             {
+                if (!connection.Track.IsBuilt)
+                    continue;
                 _highlighters.Add(HighlightConnection((TTrackConnection) connection, false, Color.green.WithAlpha(0.5f)));
             }
         }
@@ -392,7 +411,7 @@ namespace AdvancedPathfinder
                 }
 
                 FileLog.Log("Distances: " + distances.JoinToString("; "));*/
-//                HighlightSections();
+                //HighlightSections();
             }
             catch (Exception e)
             {
