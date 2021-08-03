@@ -72,12 +72,16 @@ namespace AdvancedPathfinder.Rails
             base.ProcessTrack(track, startConnection);
             Data.IsElectrified = track.Electrified;
             Data.LengthAdd = startConnection.Length;
+            if (track.Type is RailType.TurnLeft or RailType.TurnRight)
+            {
+                Data.CurvedLengthAdd = startConnection.Length;
+            }
             if (track.SignalCount > 0)
             {
-                if (startConnection.Signal != null && startConnection.InnerConnection.Signal == null)
+                if (!ReferenceEquals(startConnection.Signal, null) && startConnection.Signal.IsBuilt && ReferenceEquals(startConnection.InnerConnection.Signal, null))
                 {
                     _data.AllowedDirection = SectionDirection.Forward;
-                } else if (startConnection.Signal == null && startConnection.InnerConnection.Signal != null)
+                } else if (ReferenceEquals(startConnection.Signal, null) && !ReferenceEquals(startConnection.InnerConnection.Signal, null) && startConnection.InnerConnection.Signal.IsBuilt)
                 {
                     _data.AllowedDirection = SectionDirection.Backward;
                 }
@@ -90,7 +94,7 @@ namespace AdvancedPathfinder.Rails
             RailBlock block2 = startConnection.InnerConnection.Block;
             RailBlockHelper blockHelper = SimpleLazyManager<RailBlockHelper>.Current;
             _railBlocksStates[block1] = blockHelper.IsBlockOpen(block1);
-            if (block1 != block2)
+            if (!ReferenceEquals(block1, block2))
             {
                 float length = startConnection.Length / 2;
                 _railBlocksLengths.AddFloatToDict(block1, length);

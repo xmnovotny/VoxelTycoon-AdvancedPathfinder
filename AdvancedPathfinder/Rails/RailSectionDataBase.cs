@@ -28,6 +28,8 @@ namespace AdvancedPathfinder.Rails
 
         public float Length { get; private set; }
         public float LengthAdd { set => Length += value; }
+        public float CurvedLength { get; private set; }
+        public float CurvedLengthAdd { set => CurvedLength += value; }
 
         public bool IsValidDirection(PathDirection direction)
         {
@@ -39,6 +41,7 @@ namespace AdvancedPathfinder.Rails
             IsElectrified = data.IsElectrified;
             HasPlatform = data.HasPlatform;
             Length += data.Length;
+            CurvedLength += data.CurvedLength;
             CombineAllowedDirection(data.AllowedDirection, isReversed);
         }
 
@@ -48,6 +51,7 @@ namespace AdvancedPathfinder.Rails
             _isElectrified = true;
             _allowedDirection = SectionDirection.Both;
             Length = 0;
+            CurvedLength = 0;
         }
 
         public void CombineAllowedDirection(SectionDirection direction, bool isReversed)

@@ -6,6 +6,7 @@ namespace AdvancedPathfinder.Rails
     public class RailPathfinderEdge: PathfinderEdge<Rail, RailConnection, RailSection>
     {
         private const float PlatformMultiplier = 4f;
+        private const float CurveMultiplier = 2f;
         private readonly Dictionary<RailEdgeSettings, float> _baseScoreCache = new();
         private readonly RailPathfinderEdgeData _data = new();
 
@@ -49,7 +50,7 @@ namespace AdvancedPathfinder.Rails
             if (railEdgeSettings.Electric && !_data.IsElectrified)
                 return NoConnection;
             
-            float result = _data.Length;
+            float result = _data.Length + _data.CurvedLength * CurveMultiplier;
             if (_data.HasPlatform)
                 result += _data.PlatformLength * PlatformMultiplier;
 

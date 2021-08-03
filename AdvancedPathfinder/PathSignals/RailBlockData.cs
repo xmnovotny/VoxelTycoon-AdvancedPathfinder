@@ -119,7 +119,7 @@ namespace AdvancedPathfinder.PathSignals
                 return;
             foreach (PathSignalData signalData in InboundSignals.Values)
             {
-                if (signalData.ReservedForTrain != null)
+                if (!ReferenceEquals(signalData.ReservedForTrain, null))
                     return;
             }
 

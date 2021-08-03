@@ -20,11 +20,10 @@ namespace AdvancedPathfinder.PathSignals
     {
         //TODO: adjust reserved path index after removing track within reserved path
         //TODO: Fix correct platform penalty when there is a path block within platform
-        //TODO: Test removing rail segment within reserved path
         //TODO: Remove calling original pathfinding
         //TODO: Save and restore reserved paths
         //TODO: optimize == operators on RailBlocks
-        //TODO: Moving to depot is not functional
+        //TODO: rewrite functions for finding path when there is nonstop task
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
@@ -69,7 +68,7 @@ namespace AdvancedPathfinder.PathSignals
                 throw new InvalidOperationException("Signal data not found");
             return signalData;
         }
-
+        
         protected override void OnInitialize()
         {
             Behaviour.OnLateUpdateAction -= OnLateUpdate;
@@ -77,6 +76,7 @@ namespace AdvancedPathfinder.PathSignals
             Stopwatch sw = Stopwatch.StartNew();
             ModSettings<Settings>.Current.Subscribe(OnSettingsChanged);
             FindBlocksAndSignals();
+            AssignTrainPaths();
             sw.Stop();
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
@@ -92,6 +92,17 @@ namespace AdvancedPathfinder.PathSignals
         internal void Write(StateBinaryWriter writer)
         {
             WriteReservedPathIndexes(writer);
+        }
+
+        private void AssignTrainPaths()
+        { 
+            ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
+            for (int i = trains.Count - 1; i >= 0; i--)
+            {
+                PathCollection path = Traverse.Create(trains[i]).Field<PathCollection>("Path").Value;
+                if (path != null)
+                    _pathToTrain[path] = (Train) trains[i];
+            }
         }
 
         private void WriteReservedPathIndexes(StateBinaryWriter writer)
