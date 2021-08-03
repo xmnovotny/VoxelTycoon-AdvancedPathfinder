@@ -105,7 +105,7 @@ namespace AdvancedPathfinder.PathSignals
 
             if (TryReserveOwnPath(train, path, startIndex, startSignalData))
             {
-                reservedIndex = _lastPathIndex;
+                reservedIndex = Math.Min(_lastPathIndex, path.FrontIndex);
                 return true;
             }
 

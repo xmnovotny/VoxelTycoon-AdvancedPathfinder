@@ -19,10 +19,10 @@ namespace AdvancedPathfinder.PathSignals
     [SchemaVersion(1)]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
-        //TODO: adjust reserved path index after removing track within reserved path
+        //TODO: When shrinking front path before reserved index, fully block only when there is own vehicle in the block, not any train
         //TODO: Fix correct platform penalty when there is a path block within platform
         //TODO: Remove calling original pathfinding
-        //TODO: Save and restore reserved paths
+        //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is nonstop task
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
@@ -664,7 +664,7 @@ namespace AdvancedPathfinder.PathSignals
                     if (reservedIndex.nextDestinationIdx != null && pair.Key.ContainsIndex(reservedIndex.nextDestinationIdx.Value))
                     {
                         TrackConnection conn = pair.Key[reservedIndex.nextDestinationIdx.Value];
-                        HighlightRail((Rail) conn.Track, Color.blue, 0.8f);
+                        HighlightRail((Rail) conn.Track, Color.blue, 0.7f);
                     }
                 }
             }
