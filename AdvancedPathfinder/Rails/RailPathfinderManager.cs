@@ -10,7 +10,6 @@ namespace AdvancedPathfinder.Rails
 {
     public class RailPathfinderManager: PathfinderManager<RailPathfinderManager, Rail, RailConnection, RailSection, RailPathfinderNode, RailPathfinderEdge>
     {
-        //TODO: Rebuild graph after electrification changed
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
         //TODO: Implement  penalty based on reserved signal path for individual sections/edges 
@@ -88,7 +87,7 @@ namespace AdvancedPathfinder.Rails
             return true;
         }
 
-        private void OnRailsChanged(IReadOnlyList<Rail> newRails, IReadOnlyList<Rail> removedRails)
+        private void OnRailsChanged(IReadOnlyList<Rail> newRails, IReadOnlyList<Rail> removedRails, IReadOnlyList<Rail> electrificationChangedRails)
         {
             MarkGraphDirty();
         }

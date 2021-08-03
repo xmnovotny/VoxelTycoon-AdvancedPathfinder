@@ -12,10 +12,11 @@ namespace AdvancedPathfinder
     [HarmonyPatch]
     public class TrackHelper: LazyManager<TrackHelper>
     {
-        private Action<IReadOnlyList<Rail>, IReadOnlyList<Rail>> _railsChangedEvent;
+        private Action<IReadOnlyList<Rail>, IReadOnlyList<Rail>, IReadOnlyList<Rail>> _railsChangedEvent; //new, removed, electrification changed
         private Action<IReadOnlyList<RailSignal>, IReadOnlyList<RailSignal>> _signalsBuildChangedEvent;
         private readonly List<Rail> _newRails = new();
         private readonly List<Rail> _removedRails = new();
+        private readonly List<Rail> _electrificationChanged = new();
         private readonly List<RailSignal> _newSignals = new();
         private readonly List<RailSignal> _removedSignals = new();
         private bool _changedRails;
@@ -62,7 +63,7 @@ namespace AdvancedPathfinder
             return signals;
         }
 
-        public void RegisterRailsChanged(Action<IReadOnlyList<Rail>, IReadOnlyList<Rail>> onRailsChanged)
+        public void RegisterRailsChanged(Action<IReadOnlyList<Rail>, IReadOnlyList<Rail>, IReadOnlyList<Rail>> onRailsChanged)
         {
             _railsChangedEvent -= onRailsChanged;
             _railsChangedEvent += onRailsChanged;
@@ -77,9 +78,10 @@ namespace AdvancedPathfinder
 
         private void OnRailsChanged()
         {
-            _railsChangedEvent?.Invoke(_newRails, _removedRails);
+            _railsChangedEvent?.Invoke(_newRails, _removedRails, _electrificationChanged);
             _newRails.Clear();
             _removedRails.Clear();
+            _electrificationChanged.Clear();
             _changedRails = false;
         }
 
@@ -139,6 +141,14 @@ namespace AdvancedPathfinder
             }
         }
 
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Rail), "set_ElectrificationMode")]
+        private static void Rail_set_ElectrificationMode_pof(Rail __instance)
+        {
+            Current._electrificationChanged.Add(__instance);
+            Current._changedRails = true;
+        }
+        
         #endregion
     }
 }
