@@ -17,7 +17,7 @@ using Logger = VoxelTycoon.Logger;
 
 namespace AdvancedPathfinder
 {
-    [SchemaVersion(1)]
+    [SchemaVersion(2)]
     [HarmonyPatch]
     public class AdvancedPathfinderMod: Mod
     {
@@ -37,7 +37,6 @@ namespace AdvancedPathfinder
         {
             ModSettingsWindowManager.Current.Register<SettingsWindowPage>("AdvancedPathfinder"/* this.GetType().Name*/, "Path signals & improved pathfinder");
             Manager<RailPathfinderManager>.Initialize();
-            SimpleManager<PathSignalManager>.Initialize();
         }
 
         protected override void Deinitialize()
@@ -48,10 +47,18 @@ namespace AdvancedPathfinder
 
         protected override void Write(StateBinaryWriter writer)
         {
+            SimpleManager<PathSignalManager>.Current?.Write(writer);
         }
 
         protected override void Read(StateBinaryReader reader)
         {
+            SimpleManager<PathSignalManager>.Initialize();
+//            FileLog.Log($"SchemaVersion: {SchemaVersion<AdvancedPathfinderMod>.Get()}");
+            if (SchemaVersion<AdvancedPathfinderMod>.AtLeast(2))
+            {
+                // ReSharper disable once PossibleNullReferenceException
+                SimpleManager<PathSignalManager>.Current.Read(reader);
+            }
         }
         
 /*        [HarmonyPostfix]

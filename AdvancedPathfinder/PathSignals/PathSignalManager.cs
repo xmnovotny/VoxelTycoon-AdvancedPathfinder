@@ -16,6 +16,7 @@ using XMNUtils;
 namespace AdvancedPathfinder.PathSignals
 {
     [HarmonyPatch]
+    [SchemaVersion(1)]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
         //TODO: adjust reserved path index after removing track within reserved path
@@ -94,6 +95,11 @@ namespace AdvancedPathfinder.PathSignals
             WriteReservedPathIndexes(writer);
         }
 
+        internal void Read(StateBinaryReader reader)
+        {
+            ReadReservedPathIndexes(reader);
+        }
+
         private void AssignTrainPaths()
         { 
             ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
@@ -105,11 +111,31 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
+        private void ReadReservedPathIndexes(StateBinaryReader reader)
+        {
+            _reservedPathIndex.Clear();
+            int count = reader.ReadInt();
+            FileLog.Log($"Read {count} reserved train indexes");
+            for (int i = 0; i < count; i++)
+            {
+                Train train = LazyManager<VehicleManager>.Current.FindById(reader.ReadInt()) as Train;
+                if (train == null)
+                    throw new InvalidOperationException("Could not find train by ID");
+                int reservedIdx = reader.ReadInt();
+                int nextDestIdx = reader.ReadInt();
+                _reservedPathIndex.Add(train, (reservedIdx, nextDestIdx != int.MinValue ? nextDestIdx : null));
+            }
+
+            _lastHighlightUpdate = 0;
+            HighlightReservedPaths();
+        }
+
         private void WriteReservedPathIndexes(StateBinaryWriter writer)
         {
+            writer.WriteInt(_reservedPathIndex.Count);
             foreach (KeyValuePair<Train,(int reservedIdx, int? nextDestinationIdx)> pair in _reservedPathIndex)
             {
-                writer.WriteInt(pair.Key.Id);
+                writer.WriteInt(pair.Key.Id); //train ID
                 writer.WriteInt(pair.Value.reservedIdx);
                 writer.WriteInt(pair.Value.nextDestinationIdx ?? int.MinValue);
             }
