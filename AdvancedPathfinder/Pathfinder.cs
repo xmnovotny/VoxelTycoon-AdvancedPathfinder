@@ -15,6 +15,8 @@ namespace AdvancedPathfinder
             [NotNull] HashSet<TPathfinderNode> targetNodes, IReadOnlyCollection<TPathfinderNode> nodeList,
             object edgeSettings)
         {
+            if (targetNodes.Count == 0)
+                return null;  //empty nodes can be for destroyed stations
             Initialize(startNode, nodeList);
             OneOfManyNodesTargetChecker checker = new(targetNodes);
             return Calculate(edgeSettings, checker) ? checker.FoundNode : null;

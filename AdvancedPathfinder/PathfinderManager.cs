@@ -178,6 +178,7 @@ namespace AdvancedPathfinder
             if (!_graphDirty)
                 return;
             _graphDirty = false;
+//            FileLog.Log("Rebuild graph");
             BuildGraph();
         }
 
@@ -239,7 +240,7 @@ namespace AdvancedPathfinder
 
             HashSet<TTrack> nonProcessedTracks = GetNonProcessedTracks();
             
-            //FileLog.Log($"Unprocessed tracks: {nonProcessedTracks.Count}");
+//            FileLog.Log($"Unprocessed tracks: {nonProcessedTracks.Count}");
             if (nonProcessedTracks.Count > 0)
             {
                 HighlightNonProcessedTracks(nonProcessedTracks);
@@ -277,7 +278,7 @@ namespace AdvancedPathfinder
                     }
                 }
             }
-            //FileLog.Log($"Found {_nodes.Count} nodes");
+//            FileLog.Log($"Found {_nodes.Count} nodes");
         }
 
         private void FindEdges()
@@ -291,7 +292,7 @@ namespace AdvancedPathfinder
                 sumEdges += node.Edges.Count;
             }
             
-            //FileLog.Log($"Found {sumEdges} edges");
+//            FileLog.Log($"Found {sumEdges} edges");
         }
 
         private void HighlightNode(TPathfinderNode node, Color color)
@@ -386,19 +387,19 @@ namespace AdvancedPathfinder
                 HashSet<TTrackConnection> foundNodesConnections = new();
                 FindSections(foundNodesConnections);
                 sw.Stop();
-                //FileLog.Log("Find sections={0}".Format(sw.Elapsed));
+//                FileLog.Log("Find sections={0}".Format(sw.Elapsed));
 
                 sw.Restart();
                 FindNodes(foundNodesConnections);
                 sw.Stop();
-                //FileLog.Log("Find nodes={0}".Format(sw.Elapsed));
+//                FileLog.Log("Find nodes={0}".Format(sw.Elapsed));
 //                HighlightNodes();
 
                 sw.Restart();
                 FindEdges();
                 FillNodeSubLists();
                 sw.Stop();
-                //FileLog.Log("Find edges={0}".Format(sw.Elapsed));
+//                FileLog.Log("Find edges={0}".Format(sw.Elapsed));
 
 /*                sw.Restart();
                 Pathfinder.FindAll(_nodes[0], _reachableNodes, new RailEdgeSettings());

@@ -1,10 +1,13 @@
 ﻿using System.Collections.Generic;
+using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Buildings;
 using VoxelTycoon.Tracks;
+using VoxelTycoon.Tracks.Rails;
 
 namespace AdvancedPathfinder
 {
+    [HarmonyPatch]
     public class StationHelper<TTrackConnection, TStation>: LazyManager<StationHelper<TTrackConnection, TStation>>
         where TTrackConnection : TrackConnection
         where TStation : VehicleStation
@@ -33,6 +36,24 @@ namespace AdvancedPathfinder
                    type?.HasFlag(VehicleStationLocationType.Passenger) == false;
         }
 
+        protected override void OnInitialize()
+        {
+            LazyManager<BuildingManager>.Current.BuildingBuilt += OnBuildingBuilt;
+            LazyManager<BuildingManager>.Current.BuildingRemoved += OnBuildingRemoved;
+        }
+
+        private void OnBuildingBuilt(Building building)
+        {
+            if (building is RailStation)
+                _isDirty = true;
+        }
+
+        private void OnBuildingRemoved(Building building)
+        {
+            if (building is RailStation)
+                _isDirty = true;
+        }
+        
         private void InvalidateStationsConnections()
         {
             if (!_isDirty)
@@ -67,5 +88,28 @@ namespace AdvancedPathfinder
             _isDirty = false;
         }
         
+/*        #region HARMONY
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(Building), "OnBuilt")]
+        private static void VehicleStation_OnBuilt_pof(Building __instance)
+        {
+            if (__instance is RailStation station)
+            {
+                Current._isDirty = true;
+            }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(VehicleStation), "OnRemoved")]
+        private static void VehicleStation_OnRemoved_pof(VehicleStation __instance)
+        {
+            if (__instance is RailStation station)
+            {
+                Current._isDirty = true;
+            }
+        }
+
+        #endregion*/
     }
 }

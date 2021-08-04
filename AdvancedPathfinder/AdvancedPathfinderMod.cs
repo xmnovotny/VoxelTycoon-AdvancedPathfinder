@@ -38,6 +38,10 @@ namespace AdvancedPathfinder
         {
             ModSettingsWindowManager.Current.Register<SettingsWindowPage>("AdvancedPathfinder"/* this.GetType().Name*/, "Path signals & improved pathfinder");
             Manager<RailPathfinderManager>.Initialize();
+            if (SimpleManager<PathSignalManager>.Current == null)
+            {
+                SimpleManager<PathSignalManager>.Initialize();
+            }
         }
 
         protected override void Deinitialize()

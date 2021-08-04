@@ -19,6 +19,7 @@ namespace AdvancedPathfinder.PathSignals
     [SchemaVersion(1)]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
+        //TODO: When depot block is not simple, test for reserved paths before train can leave the depot 
         //TODO: When shrinking front path before reserved index, fully block only when there is own vehicle in the block, not any train
         //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
