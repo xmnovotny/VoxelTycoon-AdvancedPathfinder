@@ -36,6 +36,8 @@ namespace AdvancedPathfinder.PathSignals
             return new (this);
         }
 
+        internal bool IsSomeReservedPath => _reservedTrainPath.Count > 0;
+
         // ReSharper restore Unity.PerformanceCriticalContext
         internal override void ReleaseRailSegment(Train train, Rail rail)
         {
