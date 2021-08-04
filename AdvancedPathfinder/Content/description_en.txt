@@ -1,59 +1,69 @@
 Path signals & improved train pathfinder 0.9 [b]beta[/b]
 
-This mod replaces block signaling system by path based signaling and provides improved path finding for trains
+This mod replaces block signaling system by the path based signaling and provides an improved pathfinding for trains.
 
 [h2]Path signals[/h2]
 [b]Features[/b]
 [list]
 [*] Instead of allowing only one train in the signal block, each train reserves own path from one to the next signal.
 [*] Signals are red by default, only when there is a path reserved for a train, signal will turn to green
-[*] Configurable highlighting reserved paths 
+[*] Configurable highlighting of reserved paths 
 [/list]
 
 [b]!! Warning !![/b]
 Be careful when you manually turn back the train - after that, path from the new front of the train to the first signal can be in collision with the reserved path of another train. 
 The same applies when the train is longer that station, so its rear stops on the switches and train will turn back after the stop.
 (This is only for signalling blocks with switches, when there is only straight rail between signals, it is safe to turn back the train).
-Also building/removing rails and signals in the block with more than one already reserved path can lead into the collision. 
+Also building/removing rails and signals in the block with more than one already reserved path can lead to a collision. 
 
 Adding a mod to the existing save is safe, but removing should be done with care, because it can lead to the collision when there is more than one train in the signalling block.
 
 [b]Planned features[/b]
 [list]
-[*] Differentiate semaphore and light signals by slightly different behaviour - 
-        semaphore will clear reserved path after rear of the train passes last switch in the block and there will be a small delay before a new path can be reserved
-        light signal will clear each path segment individually and there will be no delay
+[*] Improve saving and loading - now it is simplified and after loading it behaves more like classical rail block system until all at loading time occupied blocks are freed
+[*] Differentiate semaphore and light signals by slightly different behaviour -
+[list] 
+[*] semaphore will clear reserved path after a rear of the train passes the last switch in the block and there will be a small delay before a new path can be reserved
+[*] light signal will clear each path segment individually and there will be no delay
+[/list]        
 [*] Allow creating multi-aspect signals based on the path reserved from signal (straight or with reduced speed)
 [*] Real pre-signal which will have signal aspect based also on the next signal (for example green-yellow-red following signals) 
 [*] Adding an ability to safely disable path signalling to ensure that the mod can be safely removed from the game.
+[*] Warning when a train automatically turns back on switches (=usually when is longer than station track), so there is a risk of collisions 
 [/list]
 
 [h2]Improved train pathfinder[/h2]
 Pathfinder is based on Dijkstra algorithm for finding the best path. Now without any optimisation it has approximately same performance as the original pathfinder 
 (original pathfinder is better on simpler rail network and shorter distances in the train schedule), but lot of improvement can be done.
-In the beta, there is slight lag when changes in the railway network are made (if changes are made in paused game, lag will appear after unpausing the game).   
+In the beta, there is a slight lag when changes in the railway network are made (if changes are made in a paused game, the lag will appear after unpausing the game).   
+
 [b]Features[/b]
 [list]
 [*] Try avoid go through stations, when there is a station bypass
 [*] Prefer tracks with less curves
 [*] Configurable highlighting train path
 [/list]
+
 [b]Planned features[/b]
 [list]
-[*] Calculating best path based on track speed restrictions, slopes, train length and acceleration
+[*] Proper detection of occupied tracks for calculating the best part.
+[*] Calculating the best path based on track speed restrictions, slopes, train length and acceleration
 [*] Selection of the best platform based on potential collision paths on arrival and departure
-[*] Lot of optimization to improve the performance 
-[*] Add ability to use ModUtils mod for settings 
-[*] Highlight suspicious non-electrified segments
-[*] Notification about much longer electrified train path than non-electrified
-[*] Notification about much longer train path than path with turning back at the station (possibly forgotten turn back order)
-[*] Better timing of updating path - update path only when there is a possibility of changes
-[*] Enable train priority setting - a train with a higher priority will reserve a path further ahead than a train with a lower priority.   
+[*] Optimizations to improve performance
+[*] Add an ability to use a ModUtils lib for settings 
+[*] Highlight a suspicious non-electrified segments
+[*] Notification of a much longer electrified train path than a non-electrified
+[*] Notification of a much longer train path than the path with turning back at the station (possibly forgotten turn back order)
+[*] Better timing of path updates - only update a path if there is a possibility of changes.
+[*] Train priority setting - a train with a higher priority will reserve a path further ahead than a train with a lower priority.   
 [/list]
 
 [h2]Beta[/h2]
+Detecting route occupancy is simplified for now. If even a part of a block is occupied, any path through that block will be treated as a path through the occupied part, even if the path system says it would not be occupied. 
+This will manifest itself for example if in a one-way station there are no signals in front of the platforms, but only in front of the switches - a pathfinder will not be able to distinguish which platform is occupied and which is free.
+
 This version should be fully working without issues, but some bugs can appear. Backups of the game saves are strongly recommended.  
-Please report issues via issue tracker 
+Please report issues via an [url=https://github.com/xmnovotny/VoxelTycoon-AdvancedPathfinder/issues]Issue tracker[/url] 
 
 [h2]Compatibility[/h2]
-Mod is not compatible with Path highlighter mod, but 
+Mod is not compatible with Path highlighter mod, but it provides own path highlighting. 

@@ -254,7 +254,7 @@ namespace AdvancedPathfinder.PathSignals
 
                 if (beyondRails != null)
                 {
-                    FileLog.Log("FoundBeyondPath");
+//                    FileLog.Log("FoundBeyondPath");
                     _reservedBeyondPath.Add(train, (beyondRails, lastRail));
                 }
                 _reservedTrainPath[train] = trainRails;
@@ -285,8 +285,6 @@ namespace AdvancedPathfinder.PathSignals
                 Rail rail = connection.Track;
                 if (rail.IsBuilt)
                 {
-                    if (rail == lastRail)
-                        FileLog.Log("LastRail = rail");
                     lastRail = rail;
                     if (connection.Block != Block)
                         throw new InvalidOperationException("Connection is from another block");

@@ -12,6 +12,7 @@ using VoxelTycoon.Modding;
 using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using VoxelTycoon.UI;
 using XMNUtils;
 using Logger = VoxelTycoon.Logger;
 
@@ -61,6 +62,15 @@ namespace AdvancedPathfinder
             }
         }
         
+        private static void ShowUpdatePathHint(double elapsedMilliseconds, Train train)
+        {
+            if (DebugSettings.VehicleUpdatePath)
+            {
+                FloatingHint.ShowHint(string.Format("Update path [{0} ms]", elapsedMilliseconds.ToString("F2")), color: (elapsedMilliseconds > 1.0) ? Color.red : Color.white, worldPosition: train.HeadPosition.GetValueOrDefault(), background: new PanelColor(Color.black, 0.4f));
+            }
+        }
+        
+        
 /*        [HarmonyPostfix]
         [HarmonyPatch(typeof(VehiclePathfinder<TrackConnection, TrackPathNode, Train>), "FindImmediately")]
         private static void TrainPathfinder_FindImmediately_pof(VehiclePathfinder<TrackConnection, TrackPathNode, Train> __instance)
@@ -68,11 +78,12 @@ namespace AdvancedPathfinder
             FileLog.Log("FindImmediately");
         }*/
 
-        private static double _origMs = 0;
-        private static double _newMs = 0;
-        [HarmonyPostfix]
+//        private static double _origMs = 0;
+//        private static double _newMs = 0;
+        [HarmonyPrefix]
         [HarmonyPatch(typeof(Train), "TryFindPath")]
-        private static void Train_TryFindPath_pof(Train __instance, ref bool __result, TrackConnection origin, IVehicleDestination target, List<TrackConnection> result)
+        [HarmonyPriority(Priority.VeryLow)]
+        private static bool Train_TryFindPath_prf(Train __instance, ref bool __result, TrackConnection origin, IVehicleDestination target, List<TrackConnection> result)
         {
             RailPathfinderManager manager = Manager<RailPathfinderManager>.Current;
             if (manager != null)
@@ -80,13 +91,17 @@ namespace AdvancedPathfinder
                 //List<TrackConnection> resultList = new();
                 result.Clear();
                 bool result2 = manager.FindImmediately(__instance, (RailConnection) origin, target, result);
-                _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
-                _newMs += manager.ElapsedMilliseconds;
-                float blockUpdatesMs = SimpleLazyManager<RailBlockHelper>.Current.ElapsedMilliseconds;
+                ShowUpdatePathHint(manager.ElapsedMilliseconds, __instance);
+//                _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
+//                _newMs += manager.ElapsedMilliseconds;
+//                float blockUpdatesMs = SimpleLazyManager<RailBlockHelper>.Current.ElapsedMilliseconds;
  //               FileLog.Log("Finding path, result={0}, in {1}ms (original was in {2}ms)".Format(result2.ToString(), manager.ElapsedMilliseconds.ToString("N2"), TrainPathfinder.Current.ElapsedMilliseconds.ToString("N2")));
 //                FileLog.Log(string.Format("Total original = {0:N0}ms, new = {1:N0}ms, ratio = {2:N1}%, block updates = {3:N2}ms", (_origMs), _newMs+blockUpdatesMs, (_origMs / (_newMs+blockUpdatesMs) * 100f), blockUpdatesMs));
                 __result = result2;
+                return false;
             }
+
+            return true;
         }
         
         [HarmonyPostfix]

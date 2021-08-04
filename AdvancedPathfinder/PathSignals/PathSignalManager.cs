@@ -20,11 +20,9 @@ namespace AdvancedPathfinder.PathSignals
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
         //TODO: When shrinking front path before reserved index, fully block only when there is own vehicle in the block, not any train
-        //TODO: Fix correct platform penalty when there is a path block within platform
-        //TODO: Remove calling original pathfinding
         //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
-        //TODO: rewrite functions for finding path when there is nonstop task
+        //TODO: rewrite functions for finding path when there is a nonstop task
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
@@ -81,7 +79,7 @@ namespace AdvancedPathfinder.PathSignals
             sw.Stop();
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
-            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
+//            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
         }
 
         protected override void OnDeinitialize()
@@ -115,7 +113,6 @@ namespace AdvancedPathfinder.PathSignals
         {
             _reservedPathIndex.Clear();
             int count = reader.ReadInt();
-            FileLog.Log($"Read {count} reserved train indexes");
             for (int i = 0; i < count; i++)
             {
                 Train train = LazyManager<VehicleManager>.Current.FindById(reader.ReadInt()) as Train;
@@ -335,7 +332,8 @@ namespace AdvancedPathfinder.PathSignals
             if (signalData.ReservedForTrain != null)
             {
                 //it should not be
-                FileLog.Log("Signal is reserved for another train.");
+                //FileLog.Log("Signal is reserved for another train.");
+                AdvancedPathfinderMod.Logger.LogError("Signal is reserved for another train.");
                 return false;
             }
 
@@ -344,7 +342,8 @@ namespace AdvancedPathfinder.PathSignals
             if (pathIndex == null)
             {
 //                throw new InvalidOperationException("Signal connection not found in the path");
-                FileLog.Log("Signal connection not found in the path");
+//                FileLog.Log("Signal connection not found in the path");
+                AdvancedPathfinderMod.Logger.LogError("Signal connection not found in the path");
                 return false;
             }
 
@@ -574,7 +573,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
             PathRailBlockData blockData = GetOrCreateRailBlockData(block);
-            FileLog.Log($"Block created {blockData.GetHashCode():X8}");
+//            FileLog.Log($"Block created {blockData.GetHashCode():X8}");
             for (int i = connections.Count - 1; i >= 0; i--)
             {
                 RailConnection conn = connections[i];
@@ -582,7 +581,7 @@ namespace AdvancedPathfinder.PathSignals
                 if (!ReferenceEquals(signal, null) && signal.IsBuilt)
                 {
                     blockData.InboundSignals.Add(signal, null);
-                    FileLog.Log($"Added signal {signal.GetHashCode():X8}");
+//                    FileLog.Log($"Added signal {signal.GetHashCode():X8}");
                     _changedStates.Add(signal);
                     if (conn.Signal != null && conn.Signal.IsBuilt)
                     {
@@ -596,7 +595,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                  newBlockData = blockData.ToSimpleBlockData();
                  _railBlocks[block] = newBlockData;
-                FileLog.Log($"Is a new simple block {newBlockData.GetHashCode():X8}");
+//                FileLog.Log($"Is a new simple block {newBlockData.GetHashCode():X8}");
             }
             
             CreatePathSignalData(newBlockData);
@@ -827,7 +826,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (Current != null && __instance is Train train)
             {
-                FileLog.Log("TrainDetached");
+//                FileLog.Log("TrainDetached");
                 Current.TrainDetached(train);
             }
         }
@@ -839,7 +838,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (Current != null && __instance is Train train)
             {
-                FileLog.Log("TrainDetaching");
+//                FileLog.Log("TrainDetaching");
                 Current.TrainDetaching(train, ___Path);
             }
         }
@@ -857,7 +856,7 @@ namespace AdvancedPathfinder.PathSignals
         // ReSharper disable once InconsistentNaming
         private static void PathCollection_Clear_prf(PathCollection __instance)
         {
-            FileLog.Log("PathCollection.Clear");
+//            FileLog.Log("PathCollection.Clear");
             Current?.PathClearing(__instance);
         }
 
@@ -902,8 +901,8 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     indexes2.Add(_oldPath.IndexOf(trackConnection));
                 }
-                FileLog.Log("Remained indexes " + indexes.Join());
-                FileLog.Log("New indexes " + indexes2.Join());
+//                FileLog.Log("Remained indexes " + indexes.Join());
+//                FileLog.Log("New indexes " + indexes2.Join());
 
                 _nextDestinationResultIdx = null;
                 if (Current != null && Current._pathToTrain.TryGetValue(__instance, out Train train2))

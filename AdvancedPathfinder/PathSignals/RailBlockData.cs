@@ -106,7 +106,10 @@ namespace AdvancedPathfinder.PathSignals
                     else
                     {
                         if (!ReferenceEquals(signalData.ReservedForTrain, null))
-                            FileLog.Log("Reserved for another train");
+                        {
+//                            FileLog.Log("Reserved for another train");
+                            AdvancedPathfinderMod.Logger.Log("Reserved for another train when releasing inbound signal");
+                        }
                     }
 
                 }

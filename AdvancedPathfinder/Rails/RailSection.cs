@@ -118,7 +118,7 @@ namespace AdvancedPathfinder.Rails
 //            GetClosedBlocksLength();
             if (_closedBlockLength.HasValue && _railBlocksStates.TryGetValue(block, out bool oldState) && oldState != newIsOpen && _railBlocksLengths.TryGetValue(block, out float length))
             {
-                FileLog.Log($"Block state change, new state: {newIsOpen}");
+//                FileLog.Log($"Block state change, new state: {newIsOpen}");
                 float value = CalculateCloseBlockLength(length);
                 if (newIsOpen)
                     _closedBlockLength -= value;

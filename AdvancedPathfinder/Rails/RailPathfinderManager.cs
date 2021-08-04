@@ -12,7 +12,7 @@ namespace AdvancedPathfinder.Rails
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
-        //TODO: Implement  penalty based on reserved signal path for individual sections/edges 
+        //TODO: Calculate occupancy penalty for individual paths
         private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
