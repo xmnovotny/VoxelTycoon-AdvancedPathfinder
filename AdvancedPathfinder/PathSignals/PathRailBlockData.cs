@@ -89,7 +89,7 @@ namespace AdvancedPathfinder.PathSignals
             if (startSignalData.IsChainSignal)
             {
 //                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
-                using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
+                using PooledList<RailToBlock> railCache = PooledList<RailToBlock>.Take();
                 if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                     return false;
                 if (!ReferenceEquals(_lastEndSignal, null))
@@ -186,7 +186,7 @@ namespace AdvancedPathfinder.PathSignals
         private bool TryReserveOwnPath([NotNull] Train train, [NotNull] PathCollection path, int startIndex, PathSignalData startSignalData)
         {
 //            FileLog.Log($"TryReserveOwnPath: {GetHashCode():X}");
-            using PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railCache = PooledList<(Rail, bool, bool)>.Take();
+            using PooledList<RailToBlock> railCache = PooledList<RailToBlock>.Take();
             if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
                 return false;
 
@@ -194,27 +194,27 @@ namespace AdvancedPathfinder.PathSignals
             return true;
         }
         
-        private bool CanReserveOwnPath([NotNull] PathCollection path, int startIndex, PathSignalData startSignalData, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> cacheList = null)
+        private bool CanReserveOwnPath([NotNull] PathCollection path, int startIndex, PathSignalData startSignalData, PooledList<RailToBlock> cacheList = null)
         {
             if (!ReferenceEquals(startSignalData.ReservedForTrain, null))
             {
                 return false;
             }
-            foreach ((Rail rail, bool isLinkedRail, bool beyondPath) in AffectedRailsEnum(path, startIndex))
+            foreach (RailToBlock railToBlock in AffectedRailsEnum(path, startIndex))
             {
-                if (_blockedRails.TryGetValue(rail, out int value) && value > 0 || (!isLinkedRail && _blockedLinkedRails.TryGetValue(rail, out int value2) && value2 > 0))
+                if (_blockedRails.TryGetValue(railToBlock.Rail, out int value) && value > 0 || (!railToBlock.IsLinkedRail && _blockedLinkedRails.TryGetValue(railToBlock.Rail, out int value2) && value2 > 0))
                 {
                     //rail in the path is blocked by another reserved path
                     return false;
                 }
 
-                cacheList?.Add((rail, isLinkedRail, beyondPath));
+                cacheList?.Add(railToBlock);
             }
 
             return true;
         }
 
-        private void ReserveOwnPathInternal(Train train, PooledList<(Rail rail, bool isLinkedRail, bool beyondPath)> railsToBlock, PathSignalData startSignal)
+        private void ReserveOwnPathInternal(Train train, PooledList<RailToBlock> railsToBlock, PathSignalData startSignal)
         {
 //            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
 //            FileLog.Log($"Reserve own path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
@@ -225,14 +225,14 @@ namespace AdvancedPathfinder.PathSignals
 
             try
             {
-                foreach ((Rail rail, bool isLinkedRail, bool beyondPath) in railsToBlock)
+                foreach (RailToBlock railToBlock in railsToBlock)
                 {
-                    if (!beyondPath)
+                    if (!railToBlock.IsBeyondPath)
                     {
-                        lastRail = rail;
-                        if (!isLinkedRail)
+                        lastRail = railToBlock.Rail;
+                        if (!railToBlock.IsLinkedRail)
                         {
-                            if (!trainRails.Add(rail))
+                            if (!trainRails.Add(railToBlock.Rail))
                             {
                                 throw new InvalidOperationException("Already reserved segment");
                             }
@@ -247,13 +247,13 @@ namespace AdvancedPathfinder.PathSignals
                             beyondRails = PooledHashSet<Rail>.Take();
                         }
 
-                        if (!isLinkedRail)
-                            beyondRails.Add(rail);
+                        if (!railToBlock.IsLinkedRail)
+                            beyondRails.Add(railToBlock.Rail);
                     }
-                    if (!isLinkedRail)
-                        _blockedRails.AddIntToDict(rail, 1);
+                    if (!railToBlock.IsLinkedRail)
+                        _blockedRails.AddIntToDict(railToBlock.Rail, 1);
                     else
-                        _blockedLinkedRails.AddIntToDict(rail, 1);
+                        _blockedLinkedRails.AddIntToDict(railToBlock.Rail, 1);
                 }
 
                 if (beyondRails != null)
@@ -273,7 +273,7 @@ namespace AdvancedPathfinder.PathSignals
             {}
         }
         
-        private IEnumerable<(Rail rail, bool isLinkedRail, bool beyondPath)> AffectedRailsEnum(PathCollection path, int startIndex)
+        private IEnumerable<RailToBlock> AffectedRailsEnum(PathCollection path, int startIndex)
         {
             int index = startIndex + 1;
             _lastPathIndex = index;
@@ -281,7 +281,7 @@ namespace AdvancedPathfinder.PathSignals
             RailConnection connection = (RailConnection)path[startIndex];
             if (connection.InnerConnection.Block != Block)
                 throw new InvalidOperationException("Connection is from another block");
-            yield return (connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
+            yield return new RailToBlock(connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
             Rail lastRail = null;
             while (index <= path.FrontIndex)
             {
@@ -292,10 +292,10 @@ namespace AdvancedPathfinder.PathSignals
                     lastRail = rail;
                     if (connection.Block != Block)
                         throw new InvalidOperationException("Connection is from another block");
-                    yield return (rail, false, false);
+                    yield return new RailToBlock(rail, false, false);
                     for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
                     {
-                        yield return (rail.GetLinkedRail(j), true, false);
+                        yield return new RailToBlock(rail.GetLinkedRail(j), true, false);
                     }
 
                     if (index != startIndex && (!ReferenceEquals(connection.Signal, null) && connection.Signal.IsBuilt || 
@@ -325,11 +325,11 @@ namespace AdvancedPathfinder.PathSignals
                         || !ReferenceEquals(outerConnection.InnerConnection.Signal, null) && outerConnection.InnerConnection.Signal.IsBuilt)
                         continue;
                     Rail rail = outerConnection.Track;
-                    yield return (rail, false, true);
+                    yield return new RailToBlock(rail, false, true);
                     connections.Add(outerConnection);
                     for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
                     {
-                        yield return (rail.GetLinkedRail(j), true, true);
+                        yield return new RailToBlock(rail.GetLinkedRail(j), true, true);
                     }
                 }
             }
