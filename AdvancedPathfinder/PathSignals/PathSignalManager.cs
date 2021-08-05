@@ -60,11 +60,16 @@ namespace AdvancedPathfinder.PathSignals
             return block.IsOpen;
         }
 
-        [NotNull]
+        [CanBeNull]
         internal PathSignalData GetPathSignalData(RailSignal signal)
         {
             if (!_pathSignals.TryGetValue(signal, out PathSignalData signalData) || signalData == null)
-                throw new InvalidOperationException("Signal data not found");
+            {
+                AdvancedPathfinderMod.Logger.LogError("Signal data not found");
+                return null;
+//                throw new InvalidOperationException("Signal data not found");
+            }
+
             return signalData;
         }
         
@@ -326,6 +331,9 @@ namespace AdvancedPathfinder.PathSignals
         {
             _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
+            if (signalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
+                return false;
+            
 //            FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (signalData.ReservedForTrain == train)
                 return true;

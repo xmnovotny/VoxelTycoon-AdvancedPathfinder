@@ -67,4 +67,15 @@ Please report issues via an [url=https://github.com/xmnovotny/VoxelTycoon-Advanc
 Highlighting paths can be turned on by Game Settings -> Mods and clicking on the "cogwheel" right from the mod name. 
 
 [h2]Compatibility[/h2]
-Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting. 
+Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
+
+[h2] Latest changes [/h2]
+[b]Version 0.92 beta[/b]
+[list]
+[*] Fixed "No data for signal" bug while replacing a signal with train heading towards it.
+[/list]
+[b]Version 0.91 beta[/b]
+[list]
+[*] Fixed bug after placing and removing railway station.
+[*] Fixed possible collision when depot is directly connected to the block with switches
+[/list]

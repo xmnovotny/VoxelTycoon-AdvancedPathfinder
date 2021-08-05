@@ -95,6 +95,8 @@ namespace AdvancedPathfinder.PathSignals
                 if (!ReferenceEquals(_lastEndSignal, null))
                 {
                     PathSignalData nextSignalData = SimpleManager<PathSignalManager>.SafeCurrent.GetPathSignalData(_lastEndSignal);
+                    if (nextSignalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
+                        return false;
                     RailBlockData nextBlockData = nextSignalData.BlockData;
                     if (nextBlockData == this)
                         throw new InvalidOperationException("Next block in the path is the same block");
