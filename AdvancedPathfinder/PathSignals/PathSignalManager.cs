@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
+using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
+using Delegates;
 using HarmonyLib;
 using JetBrains.Annotations;
 using ModSettingsUtils;
@@ -28,9 +31,12 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new(); //for delay of passing signal 
         private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
+        private readonly HashSet<Train> _updateTrainPath = new(); //trains which have to update path on LateUpdate
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
-
+        private Func<Train, float> _updatePathTimeFieldGetter;
+        private Action<Train, float> _updatePathTimeFieldSetter;
+        
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
                 new(); //index of train path which is reserved in path signals (path before index should not be altered when updating path) and if path contains part from destination to the next destination (nonstop stations), index of first element of the second part
@@ -160,6 +166,12 @@ namespace AdvancedPathfinder.PathSignals
 
         private void OnLateUpdate()
         {
+            foreach (Train train in _updateTrainPath)
+            {
+                FileLog.Log("UpdateTrainPath");
+                Manager<RailPathfinderManager>.Current.TrainUpdatePath(train);
+            }
+            _updateTrainPath.Clear();
             if (_highlightDirty)
                 HighlightReservedPaths();
         }
@@ -333,6 +345,28 @@ namespace AdvancedPathfinder.PathSignals
             _changedStates.Add(signalData.Signal);
         }
 
+        private float GetTrainUpdatePathTime(Train train)
+        {
+            if (_updatePathTimeFieldGetter == null)
+            {
+                _updatePathTimeFieldGetter = SimpleDelegateFactory.FieldGet<Train, float>("_updatePathTime");
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+            return _updatePathTimeFieldGetter(train);
+        }
+
+        private void SetTrainUpdatePathTime(Train train, float time)
+        {
+            if (_updatePathTimeFieldSetter == null)
+            {
+                _updatePathTimeFieldSetter = SimpleDelegateFactory.FieldSet<Train, float>("_updatePathTime");
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+            _updatePathTimeFieldSetter(train, time);
+        }
+
         private bool IsSignalOpenForTrain(RailSignal signal, Train train, PathCollection path)
         {
             _pathToTrain[path] = train;
@@ -348,6 +382,15 @@ namespace AdvancedPathfinder.PathSignals
                 //it should not be
                 //FileLog.Log("Signal is reserved for another train.");
                 AdvancedPathfinderMod.Logger.LogError("Signal is reserved for another train.");
+                return false;
+            }
+
+            float updatePathTime = GetTrainUpdatePathTime(train);
+            FileLog.Log($"updatePathTime: {updatePathTime}, currentTime: {LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime}");
+            if (updatePathTime - 10000 < LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime)
+            {
+                SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f + 1f);  //added 10000s for disabling original update algorithm
+                _updateTrainPath.Add(train);
                 return false;
             }
 

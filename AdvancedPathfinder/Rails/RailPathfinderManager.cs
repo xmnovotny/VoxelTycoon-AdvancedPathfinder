@@ -1,10 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using AdvancedPathfinder.UI;
+using Delegates;
 using JetBrains.Annotations;
 using UnityEngine;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using VoxelTycoon.Tracks.Tasks;
 using XMNUtils;
 
 namespace AdvancedPathfinder.Rails
@@ -15,6 +19,7 @@ namespace AdvancedPathfinder.Rails
         //TODO: refresh highlighted path after detaching a train
         private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
         private bool _closedSectionsDirty; 
+        private Action<Vehicle, bool> _trainUpdatePathAction;
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
             List<TrackConnection> result)
@@ -26,6 +31,16 @@ namespace AdvancedPathfinder.Rails
         public void MarkClosedSectionsDirty()
         {
 //            _closedSectionsDirty = true;
+        }
+
+        public void TrainUpdatePath(Train train)
+        {
+            if (_trainUpdatePathAction == null)
+            {
+                MethodInfo mInf = typeof(Vehicle).GetMethod("UpdatePath", BindingFlags.NonPublic | BindingFlags.Instance);
+                _trainUpdatePathAction = (Action<Vehicle, bool>)Delegate.CreateDelegate(typeof(Action<Vehicle, bool>), mInf);
+            }
+            _trainUpdatePathAction(train, false);
         }
 
         protected override IReadOnlyCollection<RailPathfinderNode> GetNodesList(object edgeSettings)

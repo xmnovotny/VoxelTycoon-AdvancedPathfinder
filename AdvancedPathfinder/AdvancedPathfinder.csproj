@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cyotek.CircularBuffer" Version="1.1.0" />
+    <PackageReference Include="DelegatesFactory" Version="1.2.0" />
     <PackageReference Include="SharpZipLib" Version="1.3.2" />
   </ItemGroup>
 
@@ -109,6 +110,9 @@
     </Compile>
     <Compile Include="..\..\Utils\ModSettings\ModSettingsWindowPage.cs">
       <Link>Content\ModSettings\ModSettingsWindowPage.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Utils\SimpleDelegateFactory.cs">
+      <Link>Content\Utils\SimpleDelegateFactory.cs</Link>
     </Compile>
     <Compile Include="..\..\Utils\SimpleLazyManager.cs">
       <Link>Content\Utils\SimpleLazyManager.cs</Link>
