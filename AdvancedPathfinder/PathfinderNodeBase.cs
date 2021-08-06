@@ -11,7 +11,7 @@ namespace AdvancedPathfinder
         [CanBeNull] internal PathfinderEdgeBase PreviousBestEdge { get; set; } = null;
         private FibonacciHeapNode<PathfinderNodeBase, float> _heapNode;
         public float? LastPathLength => _heapNode?.Key < float.MaxValue ? _heapNode?.Key : null;
-        public bool IsReachable { get; internal set; } = false;  //if false, there is no inbound node that is passable in forward direction
+        public bool IsReachable { get; internal set; }  //if false, there is no inbound node that is passable in forward direction
 
         /**
          * Returns new or reused reset heap node with maximum value and clears best previous nodes info

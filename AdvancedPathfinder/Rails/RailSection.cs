@@ -17,6 +17,8 @@ namespace AdvancedPathfinder.Rails
         private readonly Dictionary<RailBlock, int> _railBlocksStates = new(); //0 = free block, otherwise block is blocked
         private float? _closedBlockLength;
         internal float? CachedClosedBlockLength => _closedBlockLength;
+        private RailSignal _lastSignalForward;
+        private RailSignal _lastSignalBackward;
 
         public RailSectionData Data => _data;
 
@@ -43,6 +45,11 @@ namespace AdvancedPathfinder.Rails
             _closedBlockLength = result;
             Manager<RailPathfinderManager>.Current.MarkClosedSectionsDirty();
             return result;
+        }
+
+        public RailSignal GetLastSignal(PathDirection direction)
+        {
+            return direction == PathDirection.Forward ? _lastSignalForward : _lastSignalBackward;
         }
 
         internal override void OnSectionRemoved()
@@ -81,13 +88,20 @@ namespace AdvancedPathfinder.Rails
             }
             if (track.SignalCount > 0)
             {
-                if (!ReferenceEquals(startConnection.Signal, null) && startConnection.Signal.IsBuilt && ReferenceEquals(startConnection.InnerConnection.Signal, null))
+                RailSignal backwardSignal = startConnection.InnerConnection.Signal;
+                bool isBackwardSignal = !ReferenceEquals(backwardSignal, null) && backwardSignal.IsBuilt;
+                if (!ReferenceEquals(startConnection.Signal, null) && startConnection.Signal.IsBuilt)
                 {
-                    _data.AllowedDirection = SectionDirection.Forward;
-                } else if (ReferenceEquals(startConnection.Signal, null) && !ReferenceEquals(startConnection.InnerConnection.Signal, null) && startConnection.InnerConnection.Signal.IsBuilt)
+                    if (!isBackwardSignal)
+                        _data.AllowedDirection = SectionDirection.Forward;
+                    _lastSignalForward = startConnection.Signal;
+                } else if (isBackwardSignal)
                 {
                     _data.AllowedDirection = SectionDirection.Backward;
                 }
+
+                if (isBackwardSignal && ReferenceEquals(_lastSignalBackward, null))
+                    _lastSignalBackward = backwardSignal;
             }
 
             if (Data.HasPlatform == false && LazyManager<StationHelper<RailConnection, RailStation>>.Current.IsPlatform(startConnection))
@@ -95,13 +109,10 @@ namespace AdvancedPathfinder.Rails
 
             RailBlock block1 = startConnection.Block;
             RailBlock block2 = startConnection.InnerConnection.Block;
-//            RailBlockHelper blockHelper = SimpleLazyManager<RailBlockHelper>.Current;
-//            _railBlocksStates[block1] = 0;
             if (!ReferenceEquals(block1, block2))
             {
                 float length = startConnection.Length / 2;
                 _railBlocksLengths.AddFloatToDict(block1, length);
-//                _railBlocksStates[block2] = 0;
                 _railBlocksLengths.AddFloatToDict(block2, length);
             }
             else

@@ -20,6 +20,7 @@ namespace AdvancedPathfinder.Rails
         private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
         private bool _closedSectionsDirty; 
         private Action<Vehicle, bool> _trainUpdatePathAction;
+        private readonly HashSet<RailSignal> _edgeLastSignals = new(); //last non-chain signals on edges = good place when to update a train path
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
             List<TrackConnection> result)
@@ -43,6 +44,11 @@ namespace AdvancedPathfinder.Rails
             _trainUpdatePathAction(train, false);
         }
 
+        public bool IsLastEdgeSignal(RailSignal signal)
+        {
+            return _edgeLastSignals.Contains(signal);
+        }
+
         protected override IReadOnlyCollection<RailPathfinderNode> GetNodesList(object edgeSettings)
         {
             return edgeSettings is RailEdgeSettings {Electric: true} ? _electricalNodes : base.GetNodesList(edgeSettings);
@@ -53,6 +59,23 @@ namespace AdvancedPathfinder.Rails
             base.ProcessNodeToSubLists(node);
             if (node.IsElReachable)
                 _electricalNodes.Add(node);
+            if (!node.IsReachable)
+                return;
+
+            for (int i = node.Edges.Count - 1; i >= 0; i--)
+            {
+                RailPathfinderEdge edge = node.Edges[i];
+                if (!edge.IsPassable()) continue;
+                
+                if (edge.NextNode == null || ((RailPathfinderNode)edge.NextNode).NumPassableOutboundEdges <= 1)
+                    continue;
+
+                RailSignal lastSignal = edge.LastSignal;
+                if (!ReferenceEquals(lastSignal, null))
+                {
+                    _edgeLastSignals.Add(lastSignal);
+                }
+            }
         }
 
         protected override void OnInitialize()
@@ -98,6 +121,13 @@ namespace AdvancedPathfinder.Rails
             Rail rail = connection.Track;
             hl.transform.SetParent(rail.transform);
             return hl;
+        }
+
+        protected override void ClearGraph()
+        {
+            base.ClearGraph();
+            _electricalNodes.Clear();
+            _edgeLastSignals.Clear();;
         }
 
         protected override bool TestPathToFirstNode(List<TrackConnection> connections)

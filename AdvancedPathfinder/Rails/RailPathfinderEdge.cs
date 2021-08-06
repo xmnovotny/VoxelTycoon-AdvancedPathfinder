@@ -11,6 +11,7 @@ namespace AdvancedPathfinder.Rails
         private readonly RailPathfinderEdgeData _data = new();
 
         public RailPathfinderEdgeData Data => _data;
+        public RailSignal LastSignal { get; private set; }
 
         internal bool IsPassable(bool electric=false)
         {
@@ -60,10 +61,16 @@ namespace AdvancedPathfinder.Rails
         protected override void UpdateSections()
         {
             _data.Reset();
+            RailSignal lastSignal = null;
             foreach ((RailSection section, PathDirection direction) in Sections)
             {
                 _data.Combine(section.Data, direction == PathDirection.Backward);
+                RailSignal signal = section.GetLastSignal(direction);
+                if (signal != null)
+                    lastSignal = signal;
             }
+
+            LastSignal = lastSignal;
         }
     }
 }

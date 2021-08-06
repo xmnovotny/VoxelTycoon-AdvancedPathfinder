@@ -26,6 +26,8 @@ namespace AdvancedPathfinder.PathSignals
         //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
+        //TODO: Fix updating track before train when several chain signals are in the reserved path
+        //TODO: Fix fully block a block when passing a signal at red while no train is in the block 
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
@@ -115,6 +117,27 @@ namespace AdvancedPathfinder.PathSignals
             ReadReservedPathIndexes(reader);
         }
 
+        internal bool ShouldUpdatePath(Train train, RailSignal signal)
+        {
+            if (Manager<RailPathfinderManager>.Current.IsLastEdgeSignal(signal))
+            {
+                float updatePathTime = GetTrainUpdatePathTime(train);
+                float currentTime = LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime;
+                if (updatePathTime - 10000 < currentTime)
+                {
+                    float newTime = currentTime + 10000f + 1f; //added 10000s for disabling original update algorithm
+                    // ReSharper disable once CompareOfFloatsByEqualityOperator
+                    if (newTime != updatePathTime)
+                        SetTrainUpdatePathTime(train, newTime);
+                    
+                    _updateTrainPath.Add(train);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void AssignTrainPaths()
         { 
             ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
@@ -168,7 +191,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             foreach (Train train in _updateTrainPath)
             {
-                FileLog.Log("UpdateTrainPath");
+//                FileLog.Log("UpdateTrainPath");
                 Manager<RailPathfinderManager>.Current.TrainUpdatePath(train);
             }
             _updateTrainPath.Clear();
@@ -385,14 +408,8 @@ namespace AdvancedPathfinder.PathSignals
                 return false;
             }
 
-            float updatePathTime = GetTrainUpdatePathTime(train);
-            FileLog.Log($"updatePathTime: {updatePathTime}, currentTime: {LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime}");
-            if (updatePathTime - 10000 < LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime)
-            {
-                SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f + 1f);  //added 10000s for disabling original update algorithm
-                _updateTrainPath.Add(train);
+            if (ShouldUpdatePath(train, signal))
                 return false;
-            }
 
             RailConnection conn = signal.Connection;
             int? pathIndex = path.FindConnectionIndex(conn, train.FrontBound.ConnectionIndex);

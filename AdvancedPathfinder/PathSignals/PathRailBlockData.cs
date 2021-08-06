@@ -115,6 +115,9 @@ namespace AdvancedPathfinder.PathSignals
                     return false;
                 if (!ReferenceEquals(_lastEndSignal, null))
                 {
+                    // ReSharper disable once PossibleNullReferenceException
+                    if (SimpleManager<PathSignalManager>.Current.ShouldUpdatePath(train, _lastEndSignal))
+                        return false;
                     PathSignalData nextSignalData = SimpleManager<PathSignalManager>.SafeCurrent.GetPathSignalData(_lastEndSignal);
                     if (nextSignalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
                         return false;

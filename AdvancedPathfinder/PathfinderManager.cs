@@ -202,6 +202,8 @@ namespace AdvancedPathfinder
             }
         }
 
+        protected virtual void FinalizeBuildGraph() {}
+
         private HashSet<TTrack> GetNonProcessedTracks()
         {
             HashSet<TTrack> result = new HashSet<TTrack>();
@@ -386,11 +388,17 @@ namespace AdvancedPathfinder
             }
         }
 
+        protected virtual void ClearGraph()
+        {
+            _reachableNodes.Clear();
+        }
+
         protected void BuildGraph()
         {
             try
             {
                 Stopwatch sw = Stopwatch.StartNew();
+                ClearGraph();
                 HashSet<TTrackConnection> foundNodesConnections = new();
                 FindSections(foundNodesConnections);
                 sw.Stop();
@@ -405,6 +413,7 @@ namespace AdvancedPathfinder
                 sw.Restart();
                 FindEdges();
                 FillNodeSubLists();
+                FinalizeBuildGraph();
                 sw.Stop();
 //                FileLog.Log("Find edges={0}".Format(sw.Elapsed));
 
