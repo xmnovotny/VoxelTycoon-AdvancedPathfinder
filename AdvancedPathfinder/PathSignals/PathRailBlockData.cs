@@ -17,8 +17,8 @@ namespace AdvancedPathfinder.PathSignals
         public readonly HashSet<RailSignal> OutboundSignals = new();
         private readonly Dictionary<Rail, int> _blockedRails = new();
         private readonly Dictionary<Rail, int> _blockedLinkedRails = new();
-        private int _lastPathIndex = 0;
-        private RailSignal _lastEndSignal = null;
+        private int _lastPathIndex;
+        private RailSignal _lastEndSignal;
 
         private readonly Dictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
         private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedTrainPath = new(); //only rails in train path, not linked rails
@@ -26,6 +26,7 @@ namespace AdvancedPathfinder.PathSignals
         internal IReadOnlyDictionary<Rail, int> BlockedLinkedRails => _blockedLinkedRails;
         internal IReadOnlyDictionary<Rail, int> BlockedRails => _blockedRails;
         internal IReadOnlyDictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> ReservedBeyondPath => _reservedBeyondPath; //only rails in possible path, not linked rails
+        internal bool IsSomeReservedPath => _reservedTrainPath.Count > 0;
 
         public PathRailBlockData([NotNull] RailBlock block): base(block)
         {
@@ -36,7 +37,21 @@ namespace AdvancedPathfinder.PathSignals
             return new (this);
         }
 
-        internal bool IsSomeReservedPath => _reservedTrainPath.Count > 0;
+        /** get a sum of blocked rails from provided connection list */
+        internal int GetBlockedRailsSum(ImmutableUniqueList<RailConnection> connections)
+        {
+            int result = 0;
+            for (int i = connections.Count - 1; i >= 0; i--)
+            {
+                RailConnection connection = connections[i];
+                if (!ReferenceEquals(connection.Block, Block) && !ReferenceEquals(connection.InnerConnection.Block, Block)) //rail is not from this block
+                    continue;
+                Rail rail = connection.Track;
+                result += _blockedRails.GetValueOrDefault(rail) + _blockedLinkedRails.GetValueOrDefault(rail);
+            }
+
+            return result;
+        }
 
         // ReSharper restore Unity.PerformanceCriticalContext
         internal override void ReleaseRailSegment(Train train, Rail rail)
@@ -48,9 +63,10 @@ namespace AdvancedPathfinder.PathSignals
                 return;
             }
 
+            using PooledDictionary<Rail, int> releasedRailsSum = PooledDictionary<Rail, int>.Take();
             if (reservedList.Remove(rail))
             {
-                ReleaseRailSegmentInternal(rail);
+                ReleaseRailSegmentInternal(rail, releasedRailsSum);
 //                FileLog.Log($"ReleaseSegmentSuccess, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
                 ReleaseInboundSignal(train, rail);
             }
@@ -59,19 +75,24 @@ namespace AdvancedPathfinder.PathSignals
             {
                 _reservedTrainPath.Remove(train);
                 reservedList.Dispose();
-                ReleaseBeyondPath(train);
+                ReleaseBeyondPath(train, releasedRailsSum);
                 TryFreeFullBlock();
+            }
+
+            if (releasedRailsSum.Count > 0)
+            {
+                SimpleLazyManager<RailBlockHelper>.Current.ReleaseBlockedRails(releasedRailsSum, Block);
             }
         }
 
-        internal void ReleaseBeyondPath(Train train)
+        internal void ReleaseBeyondPath(Train train, PooledDictionary<Rail, int> releasedRailsSum)
         {
             if (!_reservedBeyondPath.TryGetValue(train, out (PooledHashSet<Rail> rails, Rail lastPathRail) data))
                 return;
             
             foreach (Rail rail in data.rails)
             {
-                ReleaseRailSegmentInternal(rail);
+                ReleaseRailSegmentInternal(rail, releasedRailsSum);
             }
 
             _reservedBeyondPath.Remove(train);
@@ -124,8 +145,8 @@ namespace AdvancedPathfinder.PathSignals
          */
         internal int? TryReserveUpdatedPathInsteadOfBeyond(Train train, PathCollection path)
         {
-            if (!_reservedBeyondPath.TryGetValue(train,
-                out (PooledHashSet<Rail> rails, Rail lastPathRail) beyondPathList)) return null;
+            if (!_reservedBeyondPath.ContainsKey(train)) 
+                return null;
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedPath))
                 return null;
             
@@ -154,7 +175,10 @@ namespace AdvancedPathfinder.PathSignals
                 //reserve last segment of path (it has right block on the inner connection)
                 connections.Add(connection);
             } 
-            ReleaseBeyondPath(train);
+
+            using PooledDictionary<Rail, int> releasedRailsSum = PooledDictionary<Rail, int>.Take();
+            using PooledDictionary<Rail, int> blockedRailsSum = PooledDictionary<Rail, int>.Take();
+            ReleaseBeyondPath(train, releasedRailsSum);
 
             foreach (RailConnection railConnection in connections)
             {
@@ -163,23 +187,35 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     reservedPath.Add(rail);
                     _blockedRails.AddIntToDict(rail, 1);
+                    if (!releasedRailsSum.TrySubIntFromDict(rail, 1, 0, true))
+                        blockedRailsSum.AddIntToDict(rail, 1);
                     for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
                     {
                         Rail linkedRail = rail.GetLinkedRail(i);
                         _blockedLinkedRails.AddIntToDict(linkedRail, 1);
+                        if (!releasedRailsSum.TrySubIntFromDict(linkedRail, 1, 0, true))
+                            blockedRailsSum.AddIntToDict(linkedRail, 1);
                     }
                 }
             }
+            
+            if (blockedRailsSum.Count > 0)
+                SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(blockedRailsSum, Block);
+            if (releasedRailsSum.Count > 0)
+                SimpleLazyManager<RailBlockHelper>.Current.ReleaseBlockedRails(releasedRailsSum, Block);
 
             return idx-1;
         }
 
-        private void ReleaseRailSegmentInternal(Rail rail)
+        private void ReleaseRailSegmentInternal(Rail rail, Dictionary<Rail, int> releasedRailsSum)
         {
             _blockedRails.SubIntFromDict(rail, 1, 0);
+            releasedRailsSum.AddIntToDict(rail, 1);
             for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
             {
-                _blockedLinkedRails.SubIntFromDict(rail.GetLinkedRail(i), 1, 0);
+                Rail linkedRail = rail.GetLinkedRail(i);
+                _blockedLinkedRails.SubIntFromDict(linkedRail, 1, 0);
+                releasedRailsSum.AddIntToDict(linkedRail, 1);
             }
         }
         
@@ -218,6 +254,7 @@ namespace AdvancedPathfinder.PathSignals
         {
 //            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
 //            FileLog.Log($"Reserve own path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
+            using PooledDictionary<Rail, int> railsSum = PooledDictionary<Rail, int>.Take();
             Rail lastRail = null;
             PooledHashSet<Rail> beyondRails = null;
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))
@@ -227,6 +264,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                 foreach (RailToBlock railToBlock in railsToBlock)
                 {
+                    railsSum.AddIntToDict(railToBlock.Rail, 1);
                     if (!railToBlock.IsBeyondPath)
                     {
                         lastRail = railToBlock.Rail;
@@ -263,6 +301,8 @@ namespace AdvancedPathfinder.PathSignals
                 }
                 _reservedTrainPath[train] = trainRails;
                 startSignal.ReservedForTrain = train;
+                
+                SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(railsSum, Block);
             }
             catch (Exception e) when (ExceptionFault.FaultBlock(e, delegate
             {
@@ -282,14 +322,12 @@ namespace AdvancedPathfinder.PathSignals
             if (connection.InnerConnection.Block != Block)
                 throw new InvalidOperationException("Connection is from another block");
             yield return new RailToBlock(connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
-            Rail lastRail = null;
             while (index <= path.FrontIndex)
             {
                 connection = (RailConnection) path[index];
                 Rail rail = connection.Track;
                 if (rail.IsBuilt)
                 {
-                    lastRail = rail;
                     if (connection.Block != Block)
                         throw new InvalidOperationException("Connection is from another block");
                     yield return new RailToBlock(rail, false, false);

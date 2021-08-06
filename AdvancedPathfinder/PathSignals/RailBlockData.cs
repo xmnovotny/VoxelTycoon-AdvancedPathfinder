@@ -23,33 +23,32 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (_isFullBlocked != value)
                 {
-//                    bool lastIsBlockFree = IsBlockFree;
                     _isFullBlocked = value;
-//                    if (lastIsBlockFree != IsBlockFree)
-                        OnBlockFreeChanged(IsBlockFree);
+                    OnBlockFreeConditionChanged(_isFullBlocked == false);
                 }
             }
         } //no individual path reservation allowed, clears when whole block becomes free of vehicles
 
-        public virtual bool IsBlockFree => Block.Value == 0 && _isFullBlocked == false;
+        public virtual int BlockBlockedCount => _isFullBlocked ? 1 : 0;
 
         public RailBlockData(RailBlock block): this(block, true)
         {
             InboundSignals = new Dictionary<RailSignal, PathSignalData>();
         }
 
-        public void RegisterBlockFreeChanged(Action<RailBlockData, bool> onBlockFreeChanged)
+        public void RegisterBlockFreeConditionChanged(Action<RailBlockData, bool> onBlockFreeConditionChanged)
         {
-            _blockFreeChangedEvent -= onBlockFreeChanged;
-            _blockFreeChangedEvent += onBlockFreeChanged;
+            _blockFreeChangedEvent -= onBlockFreeConditionChanged;
+            _blockFreeChangedEvent += onBlockFreeConditionChanged;
         }
 
-        public void UnregisterBlockFreeChanged(Action<RailBlockData, bool> onBlockFreeChanged)
+        public void UnregisterBlockFreeConditionChanged(Action<RailBlockData, bool> onBlockFreeConditionChanged)
         {
-            _blockFreeChangedEvent -= onBlockFreeChanged;
+            _blockFreeChangedEvent -= onBlockFreeConditionChanged;
         }
 
-        protected void OnBlockFreeChanged(bool isFree)
+        /** change of one condition of free block (for cumulative blocked state counting) */
+        protected void OnBlockFreeConditionChanged(bool isFree)
         {
             //FileLog.Log("RailBlockData.OnBlockFreeChanged");
             _blockFreeChangedEvent?.Invoke(this, isFree);
@@ -58,7 +57,7 @@ namespace AdvancedPathfinder.PathSignals
         protected RailBlockData(RailBlockData blockData): this(blockData.Block)
         {
             InboundSignals.AddRange(blockData.InboundSignals);
-            _blockFreeChangedEvent =blockData._blockFreeChangedEvent;
+            _blockFreeChangedEvent = blockData._blockFreeChangedEvent;
         }
         
         private RailBlockData(RailBlock block, bool _)
@@ -79,7 +78,7 @@ namespace AdvancedPathfinder.PathSignals
         protected PathSignalData GetAndTestStartSignal(PathCollection path, int startIndex)
         {
             RailSignal startSignal = ((RailConnection) path[startIndex]).Signal;
-            if (startSignal == null)
+            if (ReferenceEquals(startSignal, null))
                 throw new InvalidOperationException("No signal on path start index");
             if (!InboundSignals.TryGetValue(startSignal, out PathSignalData data))
                 throw new InvalidOperationException("Signal isn't in the inbound signal list");

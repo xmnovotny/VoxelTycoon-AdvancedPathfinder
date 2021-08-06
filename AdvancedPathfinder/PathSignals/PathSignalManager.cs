@@ -50,14 +50,19 @@ namespace AdvancedPathfinder.PathSignals
             return data.GetSignalState();
         }
 
-        public bool IsBlockOpen(RailBlock block)
+        public int BlockBlockedCount(RailBlock block, ImmutableUniqueList<RailConnection> connections)
         {
             if (_railBlocks.TryGetValue(block, out RailBlockData data))
             {
-                return data.IsBlockFree;
+                int result = data.BlockBlockedCount;
+                if (connections.Count > 0 && data is PathRailBlockData pathData)
+                {
+                    result += pathData.GetBlockedRailsSum(connections);
+                }
+                return result;
             }
 
-            return block.IsOpen;
+            return 0;
         }
 
         [CanBeNull]
@@ -82,6 +87,7 @@ namespace AdvancedPathfinder.PathSignals
             FindBlocksAndSignals();
             AssignTrainPaths();
             sw.Stop();
+            SimpleLazyManager<RailBlockHelper>.Current.OverrideBlockIsOpen = true;
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
 //            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
@@ -306,7 +312,7 @@ namespace AdvancedPathfinder.PathSignals
             if (!_railBlocks.TryGetValue(block, out RailBlockData data))
             {
                 data = new PathRailBlockData(block);
-                data.RegisterBlockFreeChanged(OnBlockFreeChanged);    
+                data.RegisterBlockFreeConditionChanged(OnBlockFreeConditionChanged);    
                 _railBlocks.Add(block, data);
             }
 
@@ -316,10 +322,10 @@ namespace AdvancedPathfinder.PathSignals
             return pathData;
         }
 
-        private void OnBlockFreeChanged(RailBlockData data, bool isFree)
+        private void OnBlockFreeConditionChanged(RailBlockData data, bool isFree)
         {
             //FileLog.Log($"OnBlockFreeChanged: {isFree}, ({data.GetHashCode():X8})");
-            SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.PathSignalBlockFreeChanged(data.Block, isFree);
+            SimpleLazyManager<RailBlockHelper>.CurrentWithoutInit?.BlockFreeConditionChanged(data.Block, isFree);
         }
 
         private void OnSignalStateChanged(PathSignalData signalData)

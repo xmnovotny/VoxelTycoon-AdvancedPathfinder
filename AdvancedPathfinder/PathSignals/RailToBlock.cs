@@ -2,7 +2,7 @@
 
 namespace AdvancedPathfinder.PathSignals
 {
-    public record RailToBlock
+    public struct RailToBlock
     {
         public Rail Rail { get; init; }
         public bool IsLinkedRail { get; init; }

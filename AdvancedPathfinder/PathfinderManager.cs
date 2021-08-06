@@ -28,7 +28,7 @@ namespace AdvancedPathfinder
         where TPathfinderNode: PathfinderNode<TTrack, TTrackConnection, TTrackSection, TPathfinderEdge>, new()
         where TPathfinderEdge : PathfinderEdge<TTrack, TTrackConnection, TTrackSection>, new()
     {
-        private readonly Color[] _colors = 
+        protected readonly Color[] Colors = 
         {
             Color.blue,
             Color.cyan,
@@ -53,12 +53,19 @@ namespace AdvancedPathfinder
         private bool _graphDirty;
         public float ElapsedMilliseconds { get; private set; }
 
+        protected List<TTrackSection> Sections => _sections;
+
         [CanBeNull]
         public TTrackSection FindSection(TTrackConnection connection)
         {
             return _trackToSection.GetValueOrDefault((TTrack) connection.Track);
         }
 
+        public TTrackSection FindSection(TTrack track)
+        {
+            return _trackToSection.GetValueOrDefault(track);
+        }
+        
         [CanBeNull]
         public TPathfinderNode FindNearestNode(TTrackConnection connection)
         {
@@ -325,7 +332,7 @@ namespace AdvancedPathfinder
             }
         }
 
-        private void HideHighlighters()
+        protected void HideHighlighters()
         {
             foreach (Highlighter highlighter in _highlighters)
             {
@@ -336,7 +343,7 @@ namespace AdvancedPathfinder
             _highlighters.Clear();
         }
 
-        private void HighlightSection(TTrackSection section, Color color)
+        protected void HighlightSection(TTrackSection section, Color color)
         {
             List<TrackConnection> connections = new();
             section.GetConnectionsInDirection(PathDirection.Backward, connections);
@@ -354,9 +361,9 @@ namespace AdvancedPathfinder
             int idx = 0;
             foreach (TTrackSection section in _sections)
             {
-                Color color = _colors[idx].WithAlpha(0.4f);
+                Color color = Colors[idx].WithAlpha(0.4f);
                 HighlightSection(section, color);
-                idx = (idx + 1) % _colors.Length;
+                idx = (idx + 1) % Colors.Length;
             }
         }
 

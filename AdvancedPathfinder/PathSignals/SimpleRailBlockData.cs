@@ -14,16 +14,14 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (_reservedForTrain != value)
                 {
-//                    bool lastIsBlockFree = IsBlockFree;
                     _reservedForTrain = value;
-//                    if (lastIsBlockFree != IsBlockFree)
-                        OnBlockFreeChanged(IsBlockFree);
+                    OnBlockFreeConditionChanged(ReferenceEquals(_reservedForTrain, null));
                 }
             }
         }
 
-        public override bool IsBlockFree => IsFullBlocked == false && _reservedForTrain == null && Block.Value == 0;
-        public PathSignalData _reservedSignal;
+        public override int BlockBlockedCount => base.BlockBlockedCount + (ReferenceEquals(_reservedForTrain, null) ? 0 : 1);
+        private PathSignalData _reservedSignal;
         private Train _reservedForTrain;
 
         public SimpleRailBlockData(RailBlock block) : base(block)

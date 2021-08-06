@@ -5,6 +5,7 @@ using UnityEngine;
 using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
+using XMNUtils;
 
 namespace AdvancedPathfinder.Rails
 {
@@ -12,14 +13,19 @@ namespace AdvancedPathfinder.Rails
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
-        //TODO: Calculate occupancy penalty for individual paths
         private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
+        private bool _closedSectionsDirty; 
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
             List<TrackConnection> result)
         {
             RailEdgeSettings settings = new RailEdgeSettings(train);
             return FindPath(origin, target, settings, result);
+        }
+
+        public void MarkClosedSectionsDirty()
+        {
+//            _closedSectionsDirty = true;
         }
 
         protected override IReadOnlyCollection<RailPathfinderNode> GetNodesList(object edgeSettings)
@@ -39,6 +45,17 @@ namespace AdvancedPathfinder.Rails
             base.OnInitialize();
             LazyManager<TrackHelper>.Current.RegisterRailsChanged(OnRailsChanged);
             LazyManager<TrackHelper>.Current.RegisterSignalBuildChanged(OnSignalBuildChanged);
+            SimpleLazyManager<RailBlockHelper>.Current.RegisterAddedBlockedRailAction(OnAddedBlockedRail);
+            SimpleLazyManager<RailBlockHelper>.Current.RegisterReleasedBlockedRailAction(OnReleasedBlockedRail);
+        }
+
+        protected override void OnLateUpdate()
+        {
+            if (_closedSectionsDirty)
+            {
+                _closedSectionsDirty = false;
+                HighlightClosedBlockSections();
+            }
         }
 
         protected override IReadOnlyCollection<RailConnection> GetStationStopsConnections()
@@ -96,6 +113,35 @@ namespace AdvancedPathfinder.Rails
             IReadOnlyList<RailSignal> removedSignals)
         {
             MarkGraphDirty();
+        }
+
+        private void OnAddedBlockedRail(Rail rail, int count, RailBlock block)
+        {
+            RailSection section = FindSection(rail);
+            section?.AddBlockedRail(rail, count, block);
+        }
+
+        private void OnReleasedBlockedRail(Rail rail, int count, RailBlock block)
+        {
+            RailSection section = FindSection(rail);
+            section?.ReleaseBlockedRail(rail, count, block);
+        }
+
+        private void HighlightClosedBlockSections()
+        {
+            HideHighlighters();
+            int idx = 0;
+            foreach (RailSection section in Sections)
+            {
+                float? closedLength = section.CachedClosedBlockLength;
+                if (closedLength is > 0)
+                {
+                    float ratio = closedLength.Value / section.CalculateCloseBlockLength(section.Length);
+                    Color color = Colors[idx].WithAlpha(ratio);
+                    HighlightSection(section, color);
+                }
+                idx = (idx + 1) % Colors.Length;
+            }
         }
 
     }
