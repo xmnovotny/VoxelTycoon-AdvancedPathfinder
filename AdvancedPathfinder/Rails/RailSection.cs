@@ -109,6 +109,8 @@ namespace AdvancedPathfinder.Rails
 
             RailBlock block1 = startConnection.Block;
             RailBlock block2 = startConnection.InnerConnection.Block;
+            if (ReferenceEquals(block1, null))
+                block1 = block2;
             if (!ReferenceEquals(block1, block2))
             {
                 float length = startConnection.Length / 2;
@@ -117,7 +119,8 @@ namespace AdvancedPathfinder.Rails
             }
             else
             {
-                _railBlocksLengths.AddFloatToDict(block1, startConnection.Length);
+                if (!ReferenceEquals(block1, null))
+                    _railBlocksLengths.AddFloatToDict(block1, startConnection.Length);
             }
         }
 
