@@ -40,11 +40,11 @@ In the beta, there is a slight lag when changes in the railway network are made 
 [*] Try avoid go through stations, when there is a station bypass
 [*] Prefer tracks with less curves
 [*] Configurable highlighting train path
+[*] Better timing of path updates - only update a path if there is a possibility of changes.
 [/list]
 
 [b]Planned features[/b]
 [list]
-[*] Proper detection of occupied tracks for calculating the best part.
 [*] Calculating the best path based on track speed restrictions, slopes, train length and acceleration
 [*] Selection of the best platform based on potential collision paths on arrival and departure
 [*] Optimizations to improve performance
@@ -52,14 +52,10 @@ In the beta, there is a slight lag when changes in the railway network are made 
 [*] Highlight a suspicious non-electrified segments
 [*] Notification of a much longer electrified train path than a non-electrified
 [*] Notification of a much longer train path than the path with turning back at the station (possibly forgotten turn back order)
-[*] Better timing of path updates - only update a path if there is a possibility of changes.
 [*] Train priority settings - a train with a higher priority will reserve a path further ahead than a train with a lower priority.   
 [/list]
 
 [h2]Beta[/h2]
-Detecting route occupancy is simplified for now. If even a part of a block is occupied, any path through that block will be treated as a path through the occupied part, even if the path system says it would not be occupied. 
-This will manifest itself for example if in a one-way station there are no signals in front of the platforms, but only in front of the switches - a pathfinder will not be able to distinguish which platform is occupied and which is free.
-
 This version should be fully working without issues, but some bugs can appear. Backups of the game saves are strongly recommended.  
 Please report issues via an [url=https://github.com/xmnovotny/VoxelTycoon-AdvancedPathfinder/issues]Issue tracker[/url] 
 
@@ -70,6 +66,15 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 0.94 beta[/b]
+[list]
+[*] Fixed null reference bug after loading save file when some track has no signal block
+[*] Trrain path is updated only when it makes sense - obly before reaching signal before point from which path can be altered.
+[/list]
+[b]Version 0.93 beta[/b]
+[list]
+[*] Individual calculations of occupied track sections for pathfinder instead of whole signal block
+[/list]
 [b]Version 0.92 beta[/b]
 [list]
 [*] Fixed "No data for signal" bug while replacing a signal with train heading towards it.
