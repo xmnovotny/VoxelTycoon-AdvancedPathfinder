@@ -121,11 +121,14 @@ namespace AdvancedPathfinder.PathSignals
                     PathSignalData nextSignalData = SimpleManager<PathSignalManager>.SafeCurrent.GetPathSignalData(_lastEndSignal);
                     if (nextSignalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
                         return false;
-                    RailBlockData nextBlockData = nextSignalData.BlockData;
-                    if (nextBlockData == this)
-                        throw new InvalidOperationException("Next block in the path is the same block");
-                    if (!nextBlockData.TryReservePath(train, path, _lastPathIndex, out reservedIndex))
-                        return false;
+                    if (!ReferenceEquals(nextSignalData.ReservedForTrain, train)) //if path is reserved for this train, we can stop finding following chain signals
+                    {
+                        RailBlockData nextBlockData = nextSignalData.BlockData;
+                        if (nextBlockData == this)
+                            throw new InvalidOperationException("Next block in the path is the same block");
+                        if (!nextBlockData.TryReservePath(train, path, _lastPathIndex, out reservedIndex))
+                            return false;
+                    }
                 }
                 ReserveOwnPathInternal(train, railCache, startSignalData);
                 return true;

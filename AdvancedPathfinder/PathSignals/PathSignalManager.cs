@@ -26,7 +26,6 @@ namespace AdvancedPathfinder.PathSignals
         //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
-        //TODO: Fix updating track before train when several chain signals are in the reserved path
         //TODO: Fix fully block a block when passing a signal at red while no train is in the block 
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
