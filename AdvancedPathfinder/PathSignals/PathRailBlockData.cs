@@ -145,46 +145,46 @@ namespace AdvancedPathfinder.PathSignals
 
         // ReSharper restore Unity.PerformanceCriticalContext
         /**
-         * Only for reservation path after stop (=with reserved beyond path)
-         * Will reserve path within this block from rearbound to the end of the block
+         * Reserve path from rear of the train to the nearest signal (used when original path (or shrunk on) ended before signal)
+         * If path is reserved up to the next signal, it will clear beyond path
          * @return path index of last reserved track 
          */
-        internal int? TryReserveUpdatedPathInsteadOfBeyond(Train train, PathCollection path)
+        internal int? TryReserveUpdatedPath(Train train, PathCollection path)
         {
-            if (!_reservedBeyondPath.ContainsKey(train)) 
-                return null;
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedPath))
                 return null;
             
             int idx = train.RearBound.ConnectionIndex;
             RailConnection connection = (RailConnection)path[idx];
-            while (connection != null && connection.Block != Block && idx<path.FrontIndex)
+            
+            //find first connection of this block in the path from rear of the train
+            while (connection != null && !ReferenceEquals(connection.Block, Block) && idx<path.FrontIndex)
             {
                 connection = (RailConnection)path[++idx];
             }
 
-            if (connection == null || connection.Block != Block)
+            if (connection == null || !ReferenceEquals(connection.Block, Block))
                 return null;
 
+            //find and store all connections in the path within this block 
             using PooledList<RailConnection> connections = PooledList<RailConnection>.Take();
-            while (connection != null && connection.Block == Block && idx<path.FrontIndex)
+            while (connection != null && ReferenceEquals(connection.Block, Block) && idx<path.FrontIndex)
             {
                 connections.Add(connection);
                 connection = (RailConnection)path[++idx];
             }
 
-            if (idx==path.FrontIndex || connection == null)
-                return null; //no new block = path is not to the end of the own block
-
-            if (ReferenceEquals(connection.InnerConnection.Block, Block))
+            if (connection != null && ReferenceEquals(connection.InnerConnection.Block, Block))
             {
-                //reserve last segment of path (it has right block on the inner connection)
+                //reserve last segment of path (it has this block on the inner connection)
                 connections.Add(connection);
             } 
 
             using PooledDictionary<Rail, int> releasedRailsSum = PooledDictionary<Rail, int>.Take();
             using PooledDictionary<Rail, int> blockedRailsSum = PooledDictionary<Rail, int>.Take();
-            ReleaseBeyondPath(train, releasedRailsSum);
+            
+            if (idx<path.FrontIndex && !ReferenceEquals(connection, null))
+                ReleaseBeyondPath(train, releasedRailsSum); //we have reached new block, so we can dispose beyond path
 
             foreach (RailConnection railConnection in connections)
             {

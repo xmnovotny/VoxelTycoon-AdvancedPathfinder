@@ -22,7 +22,6 @@ namespace AdvancedPathfinder.PathSignals
     [SchemaVersion(1)]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
-        //TODO: When shrinking front path before reserved index, fully block only when there is own vehicle in the block, not any train
         //TODO: Save and restore reserved paths instead of only reserved indexes and not fully block after reloading 
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
@@ -512,8 +511,8 @@ namespace AdvancedPathfinder.PathSignals
                 if (currBlockData != null)
                 {
                     currBlockData.ReleaseRailSegment(train, currConnection.Track);
-                    if (reservedIndex >= index)
-                        currBlockData.FullBlock();
+//                    if (reservedIndex >= index)
+//                        currBlockData.FullBlock();
                 }
 
                 currConnection = currConnection.InnerConnection;
@@ -523,8 +522,8 @@ namespace AdvancedPathfinder.PathSignals
                     if (currBlockData != null)
                     {
                         currBlockData.ReleaseRailSegment(train, currConnection.Track);
-                        if (reservedIndex >= index)
-                            currBlockData.FullBlock();
+//                        if (reservedIndex >= index)
+//                            currBlockData.FullBlock();
                     }
                 }
             }
@@ -679,11 +678,11 @@ namespace AdvancedPathfinder.PathSignals
         {
             RailConnection conn = (RailConnection) train.FrontBound.Connection;
 
-            if (conn == null || conn.Block == null) return;
+            if (conn == null || ReferenceEquals(conn.Block, null)) return;
 
             if (_railBlocks.GetValueOrDefault(conn.Block) is PathRailBlockData blockData)
             {
-                int? reservedIndex = blockData.TryReserveUpdatedPathInsteadOfBeyond(train, path);
+                int? reservedIndex = blockData.TryReserveUpdatedPath(train, path);
                 if (reservedIndex.HasValue)
                 {
                     (int reservedIdx, int? nextDestinationIdx) reserved = _reservedPathIndex.GetValueOrDefault(train);
@@ -981,7 +980,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (connections.Count > startIndex && !__instance[__instance.FrontIndex].InnerConnection.OuterConnections.Contains(connections[startIndex]))
             {
-                List<int> indexes = new();
+/*                List<int> indexes = new();
                 List<int> indexes2 = new();
                 for (int i = __instance.RearIndex; i <= __instance.FrontIndex; i++)
                 {
@@ -991,7 +990,7 @@ namespace AdvancedPathfinder.PathSignals
                 foreach (TrackConnection trackConnection in connections)
                 {
                     indexes2.Add(_oldPath.IndexOf(trackConnection));
-                }
+                }*/
 //                FileLog.Log("Remained indexes " + indexes.Join());
 //                FileLog.Log("New indexes " + indexes2.Join());
 
