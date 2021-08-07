@@ -397,9 +397,9 @@ namespace AdvancedPathfinder.PathSignals
                 return false;
             
 //            FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
-            if (signalData.ReservedForTrain == train)
+            if (ReferenceEquals(signalData.ReservedForTrain, train))
                 return true;
-            if (signalData.ReservedForTrain != null)
+            if (!ReferenceEquals(signalData.ReservedForTrain, null))
             {
                 //it should not be
                 //FileLog.Log("Signal is reserved for another train.");
@@ -443,7 +443,7 @@ namespace AdvancedPathfinder.PathSignals
             }
 
             RailConnection railConn = (RailConnection) connection;
-            if (railConn.Signal != null)
+            if (!ReferenceEquals(railConn.Signal, null))
             {
                 _passedSignals.Add(train, railConn.Signal);
                 TrainPassingSignal(train, railConn.Signal);
