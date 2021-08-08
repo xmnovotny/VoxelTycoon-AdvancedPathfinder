@@ -20,12 +20,12 @@ namespace AdvancedPathfinder.PathSignals
         private int _lastPathIndex;
         private RailSignal _lastEndSignal;
 
-        private readonly Dictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
+        private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
         private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedTrainPath = new(); //only rails in train path, not linked rails
 
         internal IReadOnlyDictionary<Rail, int> BlockedLinkedRails => _blockedLinkedRails;
         internal IReadOnlyDictionary<Rail, int> BlockedRails => _blockedRails;
-        internal IReadOnlyDictionary<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> ReservedBeyondPath => _reservedBeyondPath; //only rails in possible path, not linked rails
+        internal IReadOnlyDictionary<Train, PooledHashSet<Rail>> ReservedBeyondPath => _reservedBeyondPath; //only rails in possible path, not linked rails
         internal bool IsSomeReservedPath => _reservedTrainPath.Count > 0;
 
         public PathRailBlockData([NotNull] RailBlock block): base(block)
@@ -87,16 +87,16 @@ namespace AdvancedPathfinder.PathSignals
 
         internal void ReleaseBeyondPath(Train train, PooledDictionary<Rail, int> releasedRailsSum)
         {
-            if (!_reservedBeyondPath.TryGetValue(train, out (PooledHashSet<Rail> rails, Rail lastPathRail) data))
+            if (!_reservedBeyondPath.TryGetValue(train, out PooledHashSet<Rail> rails))
                 return;
             
-            foreach (Rail rail in data.rails)
+            foreach (Rail rail in rails)
             {
                 ReleaseRailSegmentInternal(rail, releasedRailsSum);
             }
 
             _reservedBeyondPath.Remove(train);
-            data.rails.Dispose();
+            rails.Dispose();
         }
 
         // ReSharper restore Unity.PerformanceCriticalContext
@@ -142,19 +142,22 @@ namespace AdvancedPathfinder.PathSignals
 
             return false;
         }
-
+        
         // ReSharper restore Unity.PerformanceCriticalContext
+
         /**
-         * Reserve path from rear of the train to the nearest signal (used when original path (or shrunk on) ended before signal)
-         * If path is reserved up to the next signal, it will clear beyond path
-         * @return path index of last reserved track 
+         * Reserve path from rear of the train to the nearest signal (used when original path (or shrunk on) ends before signal or after loading and recreating a signal block)
+         * If path is reserved up to the next signal, it will clear beyond path, otherwise it will reserve beyond path
+         * <param name="startIndex">starting index of the path, if null, train.RearBound will be used</param>
+         * <param name="path"></param>
+         * <param name="train"></param>
+         * <returns>path index of last reserved track</returns>
          */
-        internal int? TryReserveUpdatedPath(Train train, PathCollection path)
+        internal int? TryReservePathToFirstSignal(Train train, PathCollection path, int? startIndex = null)
         {
-            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedPath))
-                return null;
+            PooledHashSet<Rail> reservedPath = GetOrTakeTrainReservedPath(train);
             
-            int idx = train.RearBound.ConnectionIndex;
+            int idx = startIndex ?? train.RearBound.ConnectionIndex;
             RailConnection connection = (RailConnection)path[idx];
             
             //find first connection of this block in the path from rear of the train
@@ -204,7 +207,42 @@ namespace AdvancedPathfinder.PathSignals
                     }
                 }
             }
-            
+
+            if (idx == path.FrontIndex && !ReferenceEquals(connection, null) && ReferenceEquals(connection.Block, Block))
+            {
+                //reserve beyond path
+                ReleaseBeyondPath(train, releasedRailsSum); //release old beyond path
+                PooledHashSet<Rail> reservedBeyondPath = PooledHashSet<Rail>.Take();
+                try
+                {
+                    foreach (RailToBlock railToBlock in BeyondPathEnum(connection))
+                    {
+                        if (!railToBlock.IsLinkedRail)
+                        {
+                            _blockedRails.AddIntToDict(railToBlock.Rail, 1);
+                            reservedBeyondPath.Add(railToBlock.Rail);
+                        }
+                        else
+                        {
+                            _blockedLinkedRails.AddIntToDict(railToBlock.Rail, 1);
+                        }
+                        if (!releasedRailsSum.TrySubIntFromDict(railToBlock.Rail, 1, 0, true))
+                            blockedRailsSum.AddIntToDict(railToBlock.Rail, 1);
+                    }
+
+                    if (reservedBeyondPath.Count > 0)
+                        _reservedBeyondPath[train] = reservedBeyondPath;
+                    else
+                        reservedBeyondPath.Dispose();
+                }
+                catch (Exception e) when (ExceptionFault.FaultBlock(e, delegate
+                {
+                    if (!_reservedBeyondPath.ContainsKey(train))
+                        reservedBeyondPath.Dispose();
+                }))
+                {}
+            }
+                
             if (blockedRailsSum.Count > 0)
                 SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(blockedRailsSum, Block);
             if (releasedRailsSum.Count > 0)
@@ -256,15 +294,24 @@ namespace AdvancedPathfinder.PathSignals
             return true;
         }
 
+        private PooledHashSet<Rail> GetOrTakeTrainReservedPath(Train train)
+        {
+            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))
+            {
+                trainRails = PooledHashSet<Rail>.Take();
+                _reservedTrainPath[train] = trainRails;
+            }
+
+            return trainRails;
+        }
+
         private void ReserveOwnPathInternal(Train train, PooledList<RailToBlock> railsToBlock, PathSignalData startSignal)
         {
 //            FileLog.Log($"ReserveOwnPath: {GetHashCode():X}");
 //            FileLog.Log($"Reserve own path, train: {train.GetHashCode():X8}, block: {GetHashCode():X8}");
             using PooledDictionary<Rail, int> railsSum = PooledDictionary<Rail, int>.Take();
-            Rail lastRail = null;
             PooledHashSet<Rail> beyondRails = null;
-            if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> trainRails))
-                trainRails = PooledHashSet<Rail>.Take();
+            PooledHashSet<Rail> trainRails = GetOrTakeTrainReservedPath(train);
 
             try
             {
@@ -273,7 +320,6 @@ namespace AdvancedPathfinder.PathSignals
                     railsSum.AddIntToDict(railToBlock.Rail, 1);
                     if (!railToBlock.IsBeyondPath)
                     {
-                        lastRail = railToBlock.Rail;
                         if (!railToBlock.IsLinkedRail)
                         {
                             if (!trainRails.Add(railToBlock.Rail))
@@ -303,9 +349,8 @@ namespace AdvancedPathfinder.PathSignals
                 if (beyondRails != null)
                 {
 //                    FileLog.Log("FoundBeyondPath");
-                    _reservedBeyondPath.Add(train, (beyondRails, lastRail));
+                    _reservedBeyondPath.Add(train, beyondRails);
                 }
-                _reservedTrainPath[train] = trainRails;
                 startSignal.ReservedForTrain = train;
                 
                 SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(railsSum, Block);
@@ -313,7 +358,7 @@ namespace AdvancedPathfinder.PathSignals
             catch (Exception e) when (ExceptionFault.FaultBlock(e, delegate
             {
                 if (trainRails != null && !_reservedTrainPath.ContainsKey(train))
-                    trainRails?.Dispose();
+                    trainRails.Dispose();
                 beyondRails?.Dispose();
             }))
             {}
@@ -356,7 +401,12 @@ namespace AdvancedPathfinder.PathSignals
             if (connection == null)
                 throw new InvalidOperationException("No available connection in the provided path");
 
-                //end of the path, but no signal found (=need to go through all possible connections until signal is found) 
+            //end of the path, but no signal found (=need to go through all possible connections until signal is found) 
+            foreach (var railToBlock in BeyondPathEnum(connection)) yield return railToBlock;
+        }
+
+        private static IEnumerable<RailToBlock> BeyondPathEnum(RailConnection connection)
+        {
             using PooledList<RailConnection> connections = PooledList<RailConnection>.Take();
             connections.Add(connection);
             for (int i = 0; i < connections.Count; i++)
@@ -365,8 +415,9 @@ namespace AdvancedPathfinder.PathSignals
                 foreach (TrackConnection trackConnection in connection.InnerConnection.OuterConnections)
                 {
                     RailConnection outerConnection = (RailConnection) trackConnection;
-                    if (!ReferenceEquals(outerConnection.Signal, null) && outerConnection.Signal.IsBuilt 
-                        || !ReferenceEquals(outerConnection.InnerConnection.Signal, null) && outerConnection.InnerConnection.Signal.IsBuilt)
+                    if (!ReferenceEquals(outerConnection.Signal, null) && outerConnection.Signal.IsBuilt
+                        || !ReferenceEquals(outerConnection.InnerConnection.Signal, null) &&
+                        outerConnection.InnerConnection.Signal.IsBuilt)
                         continue;
                     Rail rail = outerConnection.Track;
                     yield return new RailToBlock(rail, false, true);

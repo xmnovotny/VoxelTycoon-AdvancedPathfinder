@@ -63,7 +63,7 @@ namespace AdvancedPathfinder.PathSignals
         private RailBlockData(RailBlock block, bool _)
         {
             Block = block;
-            IsFullBlocked = block.Value != 0;
+            //IsFullBlocked = block.Value != 0;
         }
 
         internal void FullBlock()

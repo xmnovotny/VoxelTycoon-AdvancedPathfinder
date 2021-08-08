@@ -34,8 +34,6 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<Train> _updateTrainPath = new(); //trains which have to update path on LateUpdate
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
-        private Func<Train, float> _updatePathTimeFieldGetter;
-        private Action<Train, float> _updatePathTimeFieldSetter;
         
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -96,6 +94,7 @@ namespace AdvancedPathfinder.PathSignals
             SimpleLazyManager<RailBlockHelper>.Current.OverrideBlockIsOpen = true;
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
+            ReserveTrainsPathsAfterStart();
 //            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
         }
 
@@ -119,14 +118,14 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (Manager<RailPathfinderManager>.Current?.IsLastEdgeSignal(signal) == true)
             {
-                float updatePathTime = GetTrainUpdatePathTime(train);
+                float updatePathTime = SimpleLazyManager<TrainHelper>.Current.GetTrainUpdatePathTime(train);
                 float currentTime = LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime;
                 if (updatePathTime - 10000 < currentTime)
                 {
                     float newTime = currentTime + 10000f + 1f; //added 10000s for disabling original update algorithm
                     // ReSharper disable once CompareOfFloatsByEqualityOperator
                     if (newTime != updatePathTime)
-                        SetTrainUpdatePathTime(train, newTime);
+                        SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime(train, newTime);
                     
                     _updateTrainPath.Add(train);
                     return true;
@@ -139,9 +138,10 @@ namespace AdvancedPathfinder.PathSignals
         private void AssignTrainPaths()
         { 
             ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
+            TrainHelper helper = SimpleLazyManager<TrainHelper>.Current;
             for (int i = trains.Count - 1; i >= 0; i--)
             {
-                PathCollection path = Traverse.Create(trains[i]).Field<PathCollection>("Path").Value;
+                PathCollection path = helper.GetTrainPath((Train)trains[i]);
                 if (path != null)
                     _pathToTrain[path] = (Train) trains[i];
             }
@@ -174,6 +174,72 @@ namespace AdvancedPathfinder.PathSignals
                 writer.WriteInt(pair.Value.reservedIdx);
                 writer.WriteInt(pair.Value.nextDestinationIdx ?? int.MinValue);
             }
+        }
+
+        private void UpdateReservedPathIndex(Train train, int reservedIndex, bool canShrink = false)
+        {
+            (int reservedIdx, int? nextDestinationIdx) reserved = _reservedPathIndex.GetValueOrDefault(train, (int.MinValue, null));
+            if (canShrink || reserved.reservedIdx <= reservedIndex)
+            {
+                reserved.reservedIdx = reservedIndex;
+                _reservedPathIndex[train] = reserved;
+            }
+        }
+
+        /** will reserve train path from rear of the train to the nearest signal */
+        private void ReserveTrainPath(Train train, [CanBeNull] PathCollection path=null, [CanBeNull] RailBlock onlyBlock = null)
+        {
+            if (!train.IsAttached)
+                return;
+            path ??= SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train);
+            RailBlock lastBlock = null;
+            RailBlock frontTrainBlock = ((RailConnection) train.FrontBound.Connection).Block;
+            int reservedIdx = train.FrontBound.ConnectionIndex;
+            for (int pathIdx = path.RearIndex; pathIdx <= path.FrontIndex; pathIdx++)
+            {
+                RailConnection conn = (RailConnection)path[pathIdx];
+                RailBlock[] currBlocks = {conn.Block, conn.InnerConnection.Block};
+                for (int j = 0; j < 2; j++)
+                {
+                    RailBlock currBlock = currBlocks[j];
+                    if (!ReferenceEquals(onlyBlock, null) && !ReferenceEquals(currBlock, onlyBlock))
+                        continue;
+                    if (!ReferenceEquals(currBlock, null) && !ReferenceEquals(currBlock, lastBlock))
+                    {
+                        if (ReferenceEquals(lastBlock, frontTrainBlock))  //this block is after block where train front is = stop reserving
+                            return;
+
+                        lastBlock = currBlock;
+
+                        RailBlockData blockData = GetBlockData(currBlock);
+                        switch (blockData)
+                        {
+                            case PathRailBlockData pathData:
+                                int? newIdx = pathData.TryReservePathToFirstSignal(train, path, pathIdx);
+                                if (newIdx > reservedIdx)
+                                    reservedIdx = newIdx.Value;
+                                break;
+                            case SimpleRailBlockData simpleData:
+                                simpleData.FullBlock();
+                                break;
+                        }
+                    }
+                }
+            }
+            if (reservedIdx > train.FrontBound.ConnectionIndex)
+                UpdateReservedPathIndex(train, reservedIdx);
+        }
+        
+        private void ReserveTrainsPathsAfterStart()
+        {
+            ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
+            for (int i = trains.Count - 1; i >= 0; i--)
+            {
+                ReserveTrainPath((Train) trains[i]);
+            }
+
+            _lastHighlightUpdate = 0;
+            HighlightReservedPaths();
         }
 
         private void OnSettingsChanged()
@@ -364,28 +430,6 @@ namespace AdvancedPathfinder.PathSignals
         private void OnSignalStateChanged(PathSignalData signalData)
         {
             _changedStates.Add(signalData.Signal);
-        }
-
-        private float GetTrainUpdatePathTime(Train train)
-        {
-            if (_updatePathTimeFieldGetter == null)
-            {
-                _updatePathTimeFieldGetter = SimpleDelegateFactory.FieldGet<Train, float>("_updatePathTime");
-            }
-
-            // ReSharper disable once PossibleNullReferenceException
-            return _updatePathTimeFieldGetter(train);
-        }
-
-        private void SetTrainUpdatePathTime(Train train, float time)
-        {
-            if (_updatePathTimeFieldSetter == null)
-            {
-                _updatePathTimeFieldSetter = SimpleDelegateFactory.FieldSet<Train, float>("_updatePathTime");
-            }
-
-            // ReSharper disable once PossibleNullReferenceException
-            _updatePathTimeFieldSetter(train, time);
         }
 
         private bool IsSignalOpenForTrain(RailSignal signal, Train train, PathCollection path)
@@ -640,10 +684,34 @@ namespace AdvancedPathfinder.PathSignals
             }
             HighlightReservedPaths();
         }
+        
+        private void ReserveTrainPathsInNewBlock(RailBlock block, RailBlockData blockData)
+        {
+            if (block.Value == 0)
+                return;
+            switch (blockData)
+            {
+                case PathRailBlockData:
+                {
+                    using PooledHashSet<Train> trains = PooledHashSet<Train>.Take();
+                    SimpleLazyManager<RailBlockHelper>.Current.FindTrainsInBlock(block, trains);
+                    foreach (Train train in trains)
+                    {
+                        ReserveTrainPath(train, null, block);
+                    }
+                    break;
+                }
+                case SimpleRailBlockData simpleRailBlockData:
+                    simpleRailBlockData.FullBlock();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(blockData));
+            }
+        }
 
         private void BlockCreated(RailBlock block)
         {
-            UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
+            UniqueList<RailConnection> connections = SimpleLazyManager<RailBlockHelper>.Current.GetBlockConnections(block);
             PathRailBlockData blockData = GetOrCreateRailBlockData(block);
 //            FileLog.Log($"Block created {blockData.GetHashCode():X8}");
             for (int i = connections.Count - 1; i >= 0; i--)
@@ -671,6 +739,7 @@ namespace AdvancedPathfinder.PathSignals
             }
             
             CreatePathSignalData(newBlockData);
+            ReserveTrainPathsInNewBlock(block, newBlockData);
             HighlightReservedPaths();
         }
 
@@ -678,11 +747,11 @@ namespace AdvancedPathfinder.PathSignals
         {
             RailConnection conn = (RailConnection) train.FrontBound.Connection;
 
-            if (conn == null || ReferenceEquals(conn.Block, null)) return;
+            if (ReferenceEquals(conn?.Block, null)) return;
 
             if (_railBlocks.GetValueOrDefault(conn.Block) is PathRailBlockData blockData)
             {
-                int? reservedIndex = blockData.TryReserveUpdatedPath(train, path);
+                int? reservedIndex = blockData.TryReservePathToFirstSignal(train, path);
                 if (reservedIndex.HasValue)
                 {
                     (int reservedIdx, int? nextDestinationIdx) reserved = _reservedPathIndex.GetValueOrDefault(train);
@@ -776,9 +845,9 @@ namespace AdvancedPathfinder.PathSignals
                                 HighlightRail(railPair.Key, linkedColor.WithAlpha(0.1f + railPair.Value * 0.1f), 0.2f);
                         }
 
-                        foreach (KeyValuePair<Train, (PooledHashSet<Rail> rails, Rail lastPathRail)> railPair in pathRailBlockData.ReservedBeyondPath)
+                        foreach (KeyValuePair<Train, PooledHashSet<Rail>> railPair in pathRailBlockData.ReservedBeyondPath)
                         {
-                            foreach (Rail rail in railPair.Value.rails)
+                            foreach (Rail rail in railPair.Value)
                             {
                                 HighlightRail(rail, Color.blue.WithAlpha(0.9f), 0.44f);
                             }
@@ -959,6 +1028,7 @@ namespace AdvancedPathfinder.PathSignals
         }
 
         private static readonly List<TrackConnection> _oldPath = new();
+        private static PathCollection _addedToFront = null;
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(PathCollection), "ShrinkFront")]
@@ -1021,6 +1091,7 @@ namespace AdvancedPathfinder.PathSignals
             _origReservedPathIndex = int.MinValue;
             _skipFirstPart = false;
             _nextDestination = null;
+            _addedToFront = __instance;
 //            Current?.VerifyPath(__instance);
         }
 
@@ -1068,6 +1139,7 @@ namespace AdvancedPathfinder.PathSignals
         private static bool Train_TryFindPath_prf(Train __instance, ref TrackConnection origin, IVehicleDestination target, List<TrackConnection> result, ref bool __result, PathCollection ___Path, ref bool __state)
         {
             __state = false;
+            _addedToFront = null;
             if (_skipFirstPart && target != _nextDestination)
             {
                 result.Clear();
@@ -1110,14 +1182,23 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Vehicle), "TryUpdateDestinationAndPath")]
+        // ReSharper disable once InconsistentNaming
+        private static void Vehicle_TryUpdateDestinationAndPath_prf()
+        {
+            _addedToFront = null;
+        }
+        
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Vehicle), "TryUpdateDestinationAndPath")]
         // ReSharper disable once InconsistentNaming
         private static void Vehicle_TryUpdateDestinationAndPath_pof(Vehicle __instance, PathCollection ___Path)
         {
-            if (Current != null && __instance is Train train)
+            if (Current != null && _addedToFront==___Path && __instance is Train train)
             {
                 Current.AfterUpdateDestinationAndPath(___Path, train);
+                _addedToFront = null;
             }
         }
 

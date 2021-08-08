@@ -17,6 +17,7 @@ namespace AdvancedPathfinder
         private Action<RailBlock> _blockRemovingAction;
         private Action<Rail, int, RailBlock> _addedBlockedRailAction;
         private Action<Rail, int, RailBlock> _releasedBlockedRailAction;
+        private Func<RailBlock, UniqueList<RailConnection>> _railBlockConnectionsGetter;
         private Stopwatch _stopwatch = new();
 
         public float ElapsedMilliseconds => _stopwatch.ElapsedTicks / 10000f;
@@ -103,6 +104,21 @@ namespace AdvancedPathfinder
             return OverrideBlockIsOpen && SimpleManager<PathSignalManager>.Current != null ? SimpleManager<PathSignalManager>.Current.BlockBlockedCount(block, connections) : (block.IsOpen ? 0 : 1);
         }
 
+        public void FindTrainsInBlock(RailBlock block, HashSet<Train> foundTrains)
+        {
+            UniqueList<RailConnection> connections = GetBlockConnections(block);
+            for (int i = connections.Count - 1; i >= 0; i--)
+            {
+                RailConnection conn = connections[i];
+                for (int j = conn.Path.UnitCount - 1; j >= 0; j--)
+                {
+                    Train train = conn.Path.GetUnit(j) as Train;
+                    if (train != null)
+                        foundTrains.Add(train);
+                }
+            }
+        }
+
         /** call only when particular block condition is changed (it will have cumulative effect = calls with isFree = true must be equal to the calls with isFree = false for indicating a free block */ 
         internal void BlockFreeConditionChanged(RailBlock block, bool isFree)
         {
@@ -129,6 +145,18 @@ namespace AdvancedPathfinder
             }
         }
 
+        internal UniqueList<RailConnection> GetBlockConnections(RailBlock block)
+        {
+            if (_railBlockConnectionsGetter == null)
+            {
+                _railBlockConnectionsGetter = SimpleDelegateFactory.FieldGet<RailBlock, UniqueList<RailConnection>>("Connections");
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+            return _railBlockConnectionsGetter(block);
+            
+        }
+        
         private void OnBlockStateChange(RailBlock block, bool oldValue, bool newValue)
         {
             if (_blockStateChangeAction.TryGetValue(block, out PropertyChangedEventHandler<RailBlock, bool> action))
