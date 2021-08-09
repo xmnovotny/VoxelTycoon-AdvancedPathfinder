@@ -408,7 +408,9 @@ namespace AdvancedPathfinder.PathSignals
         private static IEnumerable<RailToBlock> BeyondPathEnum(RailConnection connection)
         {
             using PooledList<RailConnection> connections = PooledList<RailConnection>.Take();
+            using PooledHashSet<RailConnection> processed = PooledHashSet<RailConnection>.Take();
             connections.Add(connection);
+            processed.Add(connection);
             for (int i = 0; i < connections.Count; i++)
             {
                 connection = connections[i];
@@ -420,6 +422,8 @@ namespace AdvancedPathfinder.PathSignals
                         outerConnection.InnerConnection.Signal.IsBuilt)
                         continue;
                     Rail rail = outerConnection.Track;
+                    if (!processed.Add(connection)) //connection was already processed (=circular track)
+                        continue;
                     yield return new RailToBlock(rail, false, true);
                     connections.Add(outerConnection);
                     for (int j = rail.LinkedRailCount - 1; j >= 0; j--)

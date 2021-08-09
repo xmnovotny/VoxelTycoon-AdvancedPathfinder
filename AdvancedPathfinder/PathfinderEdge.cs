@@ -36,15 +36,21 @@ namespace AdvancedPathfinder
             return Length;
         }
 
-        internal void Fill(TTrackConnection startConnection, ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder, INodeFinder<TTrackConnection> nodeFinder)
+        internal bool Fill(TTrackConnection startConnection, ISectionFinder<TTrack, TTrackConnection, TTrackSection> sectionFinder, INodeFinder<TTrackConnection> nodeFinder)
         {
             TTrackConnection  currentConnection = startConnection;
             NextNode = null;
             TTrackSection lastSection = null;
             PathDirection lastDirection = default;
+            using PooledHashSet<TTrackSection> processedSections = PooledHashSet<TTrackSection>.Take();
             while (currentConnection != null)
             {
                 TTrackSection section = sectionFinder.FindSection(currentConnection);
+                if (!processedSections.Add(section))
+                {
+                    //we already processed this section = circular (invalid) edge
+                    return false;
+                }
                 PathDirection direction =
                     section.First == currentConnection ? PathDirection.Forward : section.Last == currentConnection ? PathDirection.Backward : throw new InvalidOperationException("connection is not on the any end of the section");
 
@@ -67,6 +73,7 @@ namespace AdvancedPathfinder
                 currentConnection = (TTrackConnection)lastConn.OuterConnections[0];
             }
             UpdateSections();
+            return true;
         }
 
         private void SetNextNodeInSections()

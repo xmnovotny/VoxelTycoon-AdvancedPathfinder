@@ -152,7 +152,12 @@ namespace AdvancedPathfinder
             Stopwatch sw = Stopwatch.StartNew();
             TPathfinderNode originNode = FindNearestNode(origin);
             if (originNode == null)
-                throw new InvalidOperationException("Starting path node not found.");
+            {
+                //it can be on circular track without any signal or switch in desired direction
+                AdvancedPathfinderMod.Logger.Log("Starting path node not found.");
+                return false;
+            }
+
             HashSet<TPathfinderNode> targetNodes = ConvertDestination(target);
             if (nodesList == null)
                 nodesList = GetNodesList(edgeSettings);

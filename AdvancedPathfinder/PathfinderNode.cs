@@ -75,7 +75,8 @@ namespace AdvancedPathfinder
             foreach (TTrackConnection connection in _outboundConnections)
             {
                 TPathfinderEdge edge = new() {Owner = this};
-                edge.Fill(connection, sectionFinder, nodeFinder);
+                if (!edge.Fill(connection, sectionFinder, nodeFinder))
+                    continue;
                 _edges.Add(edge);
                 ProcessNewEdge(edge);
             }

@@ -459,7 +459,7 @@ namespace AdvancedPathfinder.PathSignals
             {
 //                throw new InvalidOperationException("Signal connection not found in the path");
 //                FileLog.Log("Signal connection not found in the path");
-                AdvancedPathfinderMod.Logger.LogError("Signal connection not found in the path");
+                AdvancedPathfinderMod.Logger.Log("Signal connection not found in the path");
                 return false;
             }
 
@@ -516,7 +516,8 @@ namespace AdvancedPathfinder.PathSignals
                 return;
             (int reservedIdx, int? nextDestinationIdx) reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, (int.MinValue, null));
 //            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}, newFrontIndex {newFrontIndex}, origFrontIndex {path.FrontIndex}, reservedIndex {reservedPathIndex.reservedIdx}");
-            PathShrinking(train, path, newFrontIndex + 1, path.FrontIndex, reservedPathIndex.reservedIdx);
+            if (path.ContainsIndex(newFrontIndex + 1))
+                PathShrinking(train, path, newFrontIndex + 1, path.FrontIndex, reservedPathIndex.reservedIdx);
             if (reservedPathIndex.reservedIdx > newFrontIndex || reservedPathIndex.nextDestinationIdx > newFrontIndex)
             {
                 if (reservedPathIndex.nextDestinationIdx > newFrontIndex)
