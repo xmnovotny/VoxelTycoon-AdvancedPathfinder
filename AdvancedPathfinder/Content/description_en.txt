@@ -10,7 +10,6 @@ This mod replaces block signaling system by the path based signaling and provide
 
 [b]Planned features[/b]
 [list]
-[*] Improve saving and loading - now it is simplified and after loading it behaves more like classical rail block system until all at loading time occupied blocks are freed
 [*] Differentiate semaphore and light signals by slightly different behaviour -
 [list] 
 [*] semaphore will clear reserved path after a rear of the train passes the last switch in the block and there will be a small delay before a new path can be reserved
@@ -66,6 +65,13 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 0.95 beta[/b]
+[list]
+[*] Fixed freezing and bugs when there was a track circle without signals
+[*] Fixed bugs when a train has no schedule orders
+[*] Fixed updating track in front of the train when several chain signals are in the reserved path
+[*] After loading and changing a signal block it will now reserve and block only rails in the train path instead of all rails in the block
+[/list]
 [b]Version 0.94 beta[/b]
 [list]
 [*] Fixed null reference bug after loading save file when some track has no signal block
