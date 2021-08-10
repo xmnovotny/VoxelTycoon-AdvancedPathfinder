@@ -55,7 +55,19 @@ namespace AdvancedPathfinder.Rails
             calculateReachableNodes = false;
             Dictionary<PathfinderNodeBase, float> nodes = originNode.GetReachableNodes(edgeSettings);
             if (nodes != null)
+            {
+                if (Stats != null)
+                {
+                    Dictionary<PathfinderNodeBase, float> fullNodes = edgeSettings is RailEdgeSettings {Electric: true}
+                        ? _electricalNodes
+                        : base.GetNodesList(edgeSettings, originNode, out _);
+                    Stats.AddFullNodesCount(fullNodes.Count);
+                    Stats.AddSubNodesCount(nodes.Count);
+                }
+
                 return nodes;
+            }
+
             calculateReachableNodes = true;
             return edgeSettings is RailEdgeSettings {Electric: true} ? _electricalNodes : base.GetNodesList(edgeSettings, originNode, out _);
         }

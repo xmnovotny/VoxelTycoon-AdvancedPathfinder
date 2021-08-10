@@ -10,6 +10,7 @@ namespace AdvancedPathfinder
 {
     public class Pathfinder<TPathfinderNode> where TPathfinderNode: PathfinderNodeBase
     {
+        public int NodesUsed { get; private set; }
         private const float ScoreCoeficient = 2f;
         private readonly FibonacciHeap<PathfinderNodeBase, float> _heap = new(float.MinValue);
         private IReadOnlyDictionary<PathfinderNodeBase, float> _nodes;
@@ -23,6 +24,7 @@ namespace AdvancedPathfinder
             if (targetNodes.Count == 0)
                 return null;  //empty nodes can be for destroyed stations
 
+            NodesUsed = 0;
             float maxScore = float.MinValue;
             foreach (TPathfinderNode targetNode in targetNodes)
             {
@@ -89,7 +91,7 @@ namespace AdvancedPathfinder
             node2.Key = 0;
             _heap.Insert(node2);
             _isNodeListReduced = maxScore < float.MaxValue;
-//            int numNodes = 1;
+            int numNodes = 0;
             foreach (KeyValuePair<PathfinderNodeBase, float> pfNodePair in nodeList)
             {
                 if (maxScore < pfNodePair.Value)
@@ -101,8 +103,10 @@ namespace AdvancedPathfinder
                     continue;
                 FibonacciHeapNode<PathfinderNodeBase, float> node = pfNodePair.Key.GetInitializedHeapNode();
                 _heap.Insert(node);
-//                numNodes++;
+                numNodes++;
             }
+
+            NodesUsed += numNodes;
             //FileLog.Log($"Total nodes: {nodeList.Count}, reduced nodes {numNodes}");
         }
 

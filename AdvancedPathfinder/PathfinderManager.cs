@@ -56,6 +56,7 @@ namespace AdvancedPathfinder
         public float ElapsedMilliseconds { get; private set; }
 
         protected List<TTrackSection> Sections => _sections;
+        public PathfinderStats Stats { get; protected set; }
 
         [CanBeNull]
         public TTrackSection FindSection(TTrackConnection connection)
@@ -189,12 +190,15 @@ namespace AdvancedPathfinder
                 throw new ArgumentException("Cannot get node list");
             TPathfinderNode endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings, true,
                 delegate(PathfinderNodeBase nodeToUpdate, float newScore) { nodesList[nodeToUpdate] = newScore; });
+            Stats?.AddReducedNodesCount(Pathfinder.NodesUsed);
             if (result != null && endNode != null)
             {
                 FindSection(origin)?.GetConnectionsToNextNode(origin, result);
                 if (!TestPathToFirstNode(result))
                 {
                     result.Clear();
+                    sw.Stop();
+                    ElapsedMilliseconds = sw.ElapsedTicks / 10000f;
                     return false;
                 }
                 FillFoundedPath(originNode, endNode, result);
@@ -202,12 +206,7 @@ namespace AdvancedPathfinder
             sw.Stop();
             ElapsedMilliseconds = sw.ElapsedTicks / 10000f;
 
-            if (endNode == null)
-            {
-                return false;
-            }
-
-            return true;
+            return endNode != null;
         }
 
         private void InvalidateGraph()
@@ -498,6 +497,7 @@ namespace AdvancedPathfinder
         protected override void OnInitialize()
         {
             BuildGraph();
+            Stats = new PathfinderStats();
         }
 
 /*        private int _lastNodeIndex = 0;

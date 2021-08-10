@@ -93,6 +93,9 @@
     <Reference Include="FibonacciHeap, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\..\FibonacciHeap\FibonacciHeap\src\FibonacciHeap\bin\Debug\netstandard2.0\FibonacciHeap.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\VoxelTycoon\VoxelTycoon_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

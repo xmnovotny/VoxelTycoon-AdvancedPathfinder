@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿//#define DISABLE
+using System.Collections.Generic;
 using AdvancedPathfinder.PathSignals;
 using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
@@ -31,17 +32,23 @@ namespace AdvancedPathfinder
             Harmony.DEBUG = false;
             _harmony = new Harmony(HarmonyID);
             FileLog.Reset();
+            #if DISABLE
+            #else
             _harmony.PatchAll();
+            #endif
         }
 
         protected override void OnGameStarted()
         {
+#if DISABLE
+#else
             ModSettingsWindowManager.Current.Register<SettingsWindowPage>("AdvancedPathfinder"/* this.GetType().Name*/, "Path signals & improved pathfinder");
             Manager<RailPathfinderManager>.Initialize();
             if (SimpleManager<PathSignalManager>.Current == null)
             {
                 SimpleManager<PathSignalManager>.Initialize();
             }
+#endif
         }
 
         protected override void Deinitialize()
@@ -57,6 +64,8 @@ namespace AdvancedPathfinder
 
         protected override void Read(StateBinaryReader reader)
         {
+#if DISABLE
+#else
             SimpleManager<PathSignalManager>.Initialize();
 //            FileLog.Log($"SchemaVersion: {SchemaVersion<AdvancedPathfinderMod>.Get()}");
             if (SchemaVersion<AdvancedPathfinderMod>.AtLeast(2))
@@ -64,6 +73,7 @@ namespace AdvancedPathfinder
                 // ReSharper disable once PossibleNullReferenceException
                 SimpleManager<PathSignalManager>.Current.Read(reader);
             }
+#endif
         }
         
         private static void ShowUpdatePathHint(double elapsedMilliseconds, Train train)
@@ -96,6 +106,7 @@ namespace AdvancedPathfinder
                 result.Clear();
                 bool result2 = manager.FindImmediately(__instance, (RailConnection) origin, target, result);
                 ShowUpdatePathHint(manager.ElapsedMilliseconds, __instance);
+//                manager.Stats?.AddPathfindingTime(manager.ElapsedMilliseconds);
 //                _origMs += TrainPathfinder.Current.ElapsedMilliseconds;
 //                _newMs += manager.ElapsedMilliseconds;
 //                float blockUpdatesMs = SimpleLazyManager<RailBlockHelper>.Current.ElapsedMilliseconds;
@@ -107,7 +118,19 @@ namespace AdvancedPathfinder
 
             return true;
         }
-        
+
+        protected override void OnLateUpdate()
+        {
+/*            PathfinderStats stats = Manager<RailPathfinderManager>.Current?.Stats;
+            if (stats != null)
+            {
+                GUIHelper.Draw(delegate
+                {
+                    GUILayout.TextArea(stats.GetStatsText());
+                });
+            }*/
+        }
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(VehicleWindow), "Initialize")]
         private static void VehicleWindow_Initialize_pof(Vehicle vehicle)
