@@ -34,6 +34,7 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<Train> _updateTrainPath = new(); //trains which have to update path on LateUpdate
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
+        internal readonly Dictionary<RailSignal, Train> OpenedSignals = new();
         
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -437,6 +438,11 @@ namespace AdvancedPathfinder.PathSignals
             if (Manager<RailPathfinderManager>.Current == null)
                 return false;
             Manager<RailPathfinderManager>.Current.Stats?.StartSignalOpenForTrain();
+            if (OpenedSignals.TryGetValue(signal, out Train reservedTrain))
+            {
+                Manager<RailPathfinderManager>.Current.Stats?.StopSignalOpenForTrain();
+                return ReferenceEquals(reservedTrain, train);
+            }
             _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
             if (signalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
@@ -448,7 +454,7 @@ namespace AdvancedPathfinder.PathSignals
                 Manager<RailPathfinderManager>.Current.Stats?.StopSignalOpenForTrain();
                 return true;
             }
-
+            
             if (!ReferenceEquals(signalData.ReservedForTrain, null))
             {
                 //it should not be
@@ -691,6 +697,7 @@ namespace AdvancedPathfinder.PathSignals
                 foreach (RailSignal signal in data.InboundSignals.Keys)
                 {
                     _pathSignals.Remove(signal);
+                    OpenedSignals.Remove(signal);
 //                    FileLog.Log($"Removed signal {signal.GetHashCode():X8}");
                     passed.AddRange(from pair in _passedSignals where pair.Value == signal select pair.Key);
                     _changedStates.Add(signal);

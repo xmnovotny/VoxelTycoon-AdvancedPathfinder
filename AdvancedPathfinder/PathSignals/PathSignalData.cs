@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using JetBrains.Annotations;
 using VoxelTycoon.Tracks.Rails;
+using XMNUtils;
 
 namespace AdvancedPathfinder.PathSignals
 {
@@ -27,6 +28,10 @@ namespace AdvancedPathfinder.PathSignals
                     else
                         FileLog.Log($"ReservedSignal {GetHashCode():X8}");*/
                     _reservedForTrain = value;
+                    if (ReferenceEquals(value, null))
+                        SimpleManager<PathSignalManager>.Current!.OpenedSignals.Remove(Signal);
+                    else
+                        SimpleManager<PathSignalManager>.Current!.OpenedSignals[Signal] = value;
                     StateChanged?.Invoke(this);
                 }
             }

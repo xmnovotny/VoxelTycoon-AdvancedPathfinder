@@ -52,7 +52,7 @@ namespace AdvancedPathfinder.Benchmark
             {
                 GUIHelper.Draw(delegate
                 {
-                    GUILayout.Space(150f);
+                    GUILayout.Space(250f);
                     GUILayout.TextArea(stats.GetStatsText());
                 });
             }

@@ -33,8 +33,8 @@ namespace AdvancedPathfinder
             float seconds = LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime - StartTime;
             result += $"Values per seconds: pathfinding count: {(float)PathfindingTimeCount/seconds:N2}, time: {PathfindingTimeSum / seconds:N3} ms\n";
             result += $"Train move time: average: {(float)TrainMoveTimeSum/TrainMoveTimeCount:N3} ms, total: {TrainMoveTimeSum:N2} ms\n";
-            result += $"Wrapped travel in front time: average: {(float)WrappedTravelTimeSum/WrappedTravelTimeCount:N3} ms, total: {WrappedTravelTimeSum:N2} ms\n";
-            result += $"Train is signal open: average: {(float)SignalOpenForTrainTimeSum/SignalOpenForTrainTimeCount:N3} ms, per train move: {(float)SignalOpenForTrainTimeSum/TrainMoveTimeCount:N3} ms, total: {SignalOpenForTrainTimeSum:N2} ms\n";
+            result += $"Wrapped travel in front time: average: {(float)WrappedTravelTimeSum/WrappedTravelTimeCount:N4} ms, total: {WrappedTravelTimeSum:N2} ms\n";
+            result += $"Train is signal open: average: {(float)SignalOpenForTrainTimeSum/SignalOpenForTrainTimeCount:N4} ms, per train move: {(float)SignalOpenForTrainTimeSum/TrainMoveTimeCount:N4} ms, total: {SignalOpenForTrainTimeSum:N2} ms\n";
             if (FullNodesCountSum > 0) 
                 result += $"Sub nodes {(float)SubNodesCountSum/FullNodesCountSum*100f:N1}%, reduced nodes {(float)ReducedNodesCountSum/FullNodesCountSum*100f:N1}%";
             return result;
