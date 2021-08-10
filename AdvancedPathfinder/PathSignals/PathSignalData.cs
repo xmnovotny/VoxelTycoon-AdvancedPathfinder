@@ -20,7 +20,7 @@ namespace AdvancedPathfinder.PathSignals
             get => _reservedForTrain;
             internal set
             {
-                if (value != _reservedForTrain)
+                if (!ReferenceEquals(value,_reservedForTrain))
                 {
 /*                    if (value == null )
                         FileLog.Log($"ReleasedSignal {GetHashCode():X8}");
@@ -46,13 +46,15 @@ namespace AdvancedPathfinder.PathSignals
 
         public void TrainPassedSignal(Train train)
         {
-            if (_reservedForTrain == train)
+            if (!ReferenceEquals(_reservedForTrain, train))
+                BlockData.FullBlock(); //train passed signal that is not reserved for it = set block as fully blocked
+            else
                 ReservedForTrain = null;
         }
 
         public void TrainPassingSignal(Train train)
         {
-            if (_reservedForTrain != train) //train passed signal that is not reserved for it = set block as fully blocked
+            if (_reservedForTrain != train && train.IgnoreSignals) //train passed signal that is not reserved for it while have ignore signals turned on = set block as fully blocked (if no ignoring signal, it may be only at low-fps entering track with signal without passing it)
                 BlockData.FullBlock();
         }
 

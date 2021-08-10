@@ -111,7 +111,7 @@ namespace AdvancedPathfinder.PathSignals
             {
 //                FileLog.Log($"TryReservePath ChainSignal: {GetHashCode():X}");
                 using PooledList<RailToBlock> railCache = PooledList<RailToBlock>.Take();
-                if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
+                if (!CanReserveOwnPath(train, path, startIndex, startSignalData, railCache))
                     return false;
                 if (!ReferenceEquals(_lastEndSignal, null))
                 {
@@ -267,27 +267,35 @@ namespace AdvancedPathfinder.PathSignals
         {
 //            FileLog.Log($"TryReserveOwnPath: {GetHashCode():X}");
             using PooledList<RailToBlock> railCache = PooledList<RailToBlock>.Take();
-            if (!CanReserveOwnPath(path, startIndex, startSignalData, railCache))
+            if (!CanReserveOwnPath(train, path, startIndex, startSignalData, railCache))
                 return false;
 
             ReserveOwnPathInternal(train, railCache, startSignalData);
             return true;
         }
         
-        private bool CanReserveOwnPath([NotNull] PathCollection path, int startIndex, PathSignalData startSignalData, PooledList<RailToBlock> cacheList = null)
+        private bool CanReserveOwnPath(Train train, [NotNull] PathCollection path, int startIndex, PathSignalData startSignalData, PooledList<RailToBlock> cacheList = null)
         {
             if (!ReferenceEquals(startSignalData.ReservedForTrain, null))
             {
                 return false;
             }
+
+            bool isFirst = true;
             foreach (RailToBlock railToBlock in AffectedRailsEnum(path, startIndex))
             {
                 if (_blockedRails.TryGetValue(railToBlock.Rail, out int value) && value > 0 || (!railToBlock.IsLinkedRail && _blockedLinkedRails.TryGetValue(railToBlock.Rail, out int value2) && value2 > 0))
                 {
+                    if (isFirst && _reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reserved) && reserved.Contains(railToBlock.Rail))
+                    {
+                        AdvancedPathfinderMod.Logger.LogError($"Train \"{train.Name}\": Try to reserve already reserved path for train, probably signal early turned to red");
+//                        FileLog.Log($"{train.Name}, signal {startSignalData.Signal.GetHashCode():X8}: Try to reserve already reserved path for train, probably signal early turned to red");
+                    }
                     //rail in the path is blocked by another reserved path
                     return false;
                 }
 
+                isFirst = false;
                 cacheList?.Add(railToBlock);
             }
 
@@ -352,6 +360,8 @@ namespace AdvancedPathfinder.PathSignals
                     _reservedBeyondPath.Add(train, beyondRails);
                 }
                 startSignal.ReservedForTrain = train;
+//                FileLog.Log($"{train.Name}, signal {startSignal.GetHashCode():X8}: Reserved");
+
                 
                 SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(railsSum, Block);
             }

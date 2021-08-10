@@ -265,7 +265,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainPassedSignal(Train train, RailSignal signal)
         {
-//            FileLog.Log("Train passed signal");
+//            FileLog.Log($"{train.Name}, signal {signal.GetHashCode():X8}: Passed");
             if (!_pathSignals.TryGetValue(signal, out PathSignalData data))
                 throw new InvalidOperationException("No data for signal.");
             data.TrainPassedSignal(train);
@@ -273,7 +273,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainPassingSignal(Train train, RailSignal signal)
         {
-//            FileLog.Log("Train passed signal");
+//            FileLog.Log($"{train.Name}, signal {signal.GetHashCode():X8}: Passing");
             if (!_pathSignals.TryGetValue(signal, out PathSignalData data))
                 throw new InvalidOperationException("No data for signal.");
             data.TrainPassingSignal(train);
@@ -487,8 +487,18 @@ namespace AdvancedPathfinder.PathSignals
 
         private void TrainConnectionReached(Train train, TrackConnection connection)
         {
+            if (ReferenceEquals(connection, null))
+                return;
             if (_passedSignals.TryGetValue(train, out RailSignal signal))
             {
+                if (signal.Connection == connection)
+                {
+                    //repeatedly passing one signal, we call again train passing signal event (this is caused by low-fps)
+//                    AdvancedPathfinderMod.Logger.LogError($"{train.Name}, signal {signal.GetHashCode():X8}: Same connection");
+//                    FileLog.Log($"{train.Name}, signal {signal.GetHashCode():X8}: Same connection");
+                    TrainPassingSignal(train, signal);
+                    return;
+                }
                 TrainPassedSignal(train, signal);
                 _passedSignals.Remove(train);
             }
