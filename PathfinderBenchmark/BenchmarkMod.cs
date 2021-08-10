@@ -24,6 +24,7 @@ namespace AdvancedPathfinder.Benchmark
         private static readonly Stopwatch PathStopwatch = new();
         private static readonly Stopwatch VehicleStopwatch = new();
         private static PathfinderStats _stats;
+        private static bool TrainMoveStart = false;
 
         protected override void Initialize()
         {
@@ -51,9 +52,23 @@ namespace AdvancedPathfinder.Benchmark
             {
                 GUIHelper.Draw(delegate
                 {
+                    GUILayout.Space(150f);
                     GUILayout.TextArea(stats.GetStatsText());
                 });
             }
+        }
+
+        private static PathfinderStats GetStats()
+        {
+            PathfinderStats stats = Manager<RailPathfinderManager>.Current?.Stats;
+            if (stats != null)
+                return stats;
+
+            if (_stats != null)
+                return _stats;
+
+            _stats = new PathfinderStats();
+            return _stats;
         }
 
         [HarmonyPrefix]
@@ -63,6 +78,7 @@ namespace AdvancedPathfinder.Benchmark
             if (__instance is Train)
             {
                 VehicleStopwatch.Restart();
+                TrainMoveStart = true;
             }
         }
 
@@ -73,13 +89,7 @@ namespace AdvancedPathfinder.Benchmark
             if (__instance is Train)
             {
                 VehicleStopwatch.Stop();
-                PathfinderStats stats = Manager<RailPathfinderManager>.Current?.Stats;
-                if (stats == null)
-                {
-                    if (_stats == null)
-                        _stats = new PathfinderStats();
-                    stats = _stats;
-                }
+                PathfinderStats stats = GetStats();
                 stats.AddTrainMoveTime(VehicleStopwatch.ElapsedTicks / 10000f);
             }
         }
@@ -98,14 +108,26 @@ namespace AdvancedPathfinder.Benchmark
         private static void Train_TryFindPath_pof()
         {
             PathStopwatch.Stop();
-            PathfinderStats stats = Manager<RailPathfinderManager>.Current?.Stats;
-            if (stats == null)
-            {
-                if (_stats == null)
-                    _stats = new PathfinderStats();
-                stats = _stats;
-            }
+            PathfinderStats stats = GetStats();
             stats.AddPathfindingTime(PathStopwatch.ElapsedTicks / 10000f);
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(TrackUnit), "WrappedTravel")]
+        private static void TrackUnit_WrappedTravel_prf()
+        {
+            if (TrainMoveStart)
+                GetStats().StartWrappedTravel();
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TrackUnit), "WrappedTravel")]
+        private static void TrackUnit_WrappedTravel_pof()
+        {
+            if (TrainMoveStart)
+                GetStats().StopWrappedTravel();
+
+            TrainMoveStart = false;
         }
     }
 }

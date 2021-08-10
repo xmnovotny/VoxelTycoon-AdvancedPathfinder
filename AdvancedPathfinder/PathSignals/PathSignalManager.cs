@@ -434,6 +434,9 @@ namespace AdvancedPathfinder.PathSignals
 
         private bool IsSignalOpenForTrain(RailSignal signal, Train train, PathCollection path)
         {
+            if (Manager<RailPathfinderManager>.Current == null)
+                return false;
+            Manager<RailPathfinderManager>.Current.Stats?.StartSignalOpenForTrain();
             _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
             if (signalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
@@ -441,7 +444,11 @@ namespace AdvancedPathfinder.PathSignals
             
 //            FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (ReferenceEquals(signalData.ReservedForTrain, train))
+            {
+                Manager<RailPathfinderManager>.Current.Stats?.StopSignalOpenForTrain();
                 return true;
+            }
+
             if (!ReferenceEquals(signalData.ReservedForTrain, null))
             {
                 //it should not be
@@ -473,6 +480,7 @@ namespace AdvancedPathfinder.PathSignals
                 _reservedPathIndex[train] = pathIds;
             }
 
+            Manager<RailPathfinderManager>.Current!.Stats?.StopSignalOpenForTrain();
             HighlightReservedPaths();
             return result;
         }
