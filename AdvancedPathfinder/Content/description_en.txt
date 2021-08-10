@@ -65,6 +65,10 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 0.96 beta[/b]
+[list]
+[*] Fix for a low FPS situation when a train temporarily enters a block with a signal at danger.
+[/list]
 [b]Version 0.95 beta[/b]
 [list]
 [*] Fixed freezing and bugs when there was a track circle without signals
