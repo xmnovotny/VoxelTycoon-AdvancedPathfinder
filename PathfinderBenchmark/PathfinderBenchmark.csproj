@@ -1,0 +1,115 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DebugType>portable</DebugType>
+    <UserSecretsId>9b7ea2c0-28cc-4f3f-a92d-6c02087cf6be</UserSecretsId>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>Full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>TRACE</DefineConstants>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpZipLib" Version="1.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\0Harmony.dll">
+      <HintPath>$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\Assembly-CSharp.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.CoreModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.TextRenderingModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\Newtonsoft.Json.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.InputLegacyModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UI.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UIElementsModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UIElementsNativeModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UIElementsNativeModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UIModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UmbraModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UmbraModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UNETModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UNETModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityAnalyticsModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityAnalyticsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityConnectModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityConnectModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityCurlModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityCurlModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityTestProtocolModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityTestProtocolModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestAssetBundleModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestAssetBundleModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestAudioModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+    </Reference>
+    <Reference Include="$(VoxelTycoonInstallationDir)\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestWWWModule.dll">
+      <HintPath>{$VoxelTycoonInstallationDir}\VoxelTycoon_Data\Managed\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
+    </Reference>
+    <Reference Include="FibonacciHeap, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\FibonacciHeap\FibonacciHeap\src\FibonacciHeap\bin\Debug\netstandard2.0\FibonacciHeap.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\VoxelTycoon\VoxelTycoon_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Utils\CSharp9Helper.cs">
+      <Link>Content\Utils\CSharp9Helper.cs</Link>
+    </Compile>
+    <Compile Include="..\..\Utils\XMNUtils.cs">
+      <Link>Content\Utils\XMNUtils.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AdvancedPathfinder\AdvancedPathfinder.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if $(ConfigurationName) == Debug (&#xD;&#xA;  &quot;$(Pdb2MdbExe)&quot; &quot;$(TargetPath)&quot;&#xD;&#xA;)&#xD;&#xA;&#xD;&#xA;copy /Y &quot;$(TargetPath)&quot; &quot;$(VoxelTycoonInstallationDir)/Content/$(TargetName)&quot;&#xD;&#xA;&#xD;&#xA;copy /Y &quot;$(ProjectDir)mod.json&quot; &quot;$(VoxelTycoonInstallationDir)/Content/$(TargetName)&quot;&#xD;&#xA;&#xD;&#xA;xcopy /Y &quot;$(ProjectDir)/Content/localization&quot; &quot;$(VoxelTycoonInstallationDir)/Content/$(TargetName)/localization&quot;&#xD;&#xA;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(VoxelTycoonInstallationDir)/Content/$(TargetName)&quot;&#xD;&#xA;&#xD;&#xA;if exist &quot;$(TargetDir)$(TargetName).dll.mdb&quot; (copy /Y &quot;$(TargetDir)$(TargetName).dll.mdb&quot; &quot;$(VoxelTycoonInstallationDir)/Content/$(TargetName)&quot;)&#xD;&#xA;&#xD;&#xA;copy /Y &quot;$(TargetPath)&quot; &quot;$(VoxelTycoonWorkshopDir)/$(AdvancedPathfinderId)&quot;&#xD;&#xA;&#xD;&#xA;xcopy /Y &quot;$(ProjectDir)/Content/localization&quot; &quot;$(VoxelTycoonWorkshopDir)/$(AdvancedPathfinderId)/localization&quot;&#xD;&#xA;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(VoxelTycoonWorkshopDir)/$(AdvancedPathfinderId)&quot;&#xD;&#xA;&#xD;&#xA;if exist &quot;$(TargetDir)$(TargetName).dll.mdb&quot; (copy /Y &quot;$(TargetDir)$(TargetName).dll.mdb&quot; &quot;$(VoxelTycoonWorkshopDir)/$(AdvancedPathfinderId)&quot;)" />
+  </Target>
+</Project>
