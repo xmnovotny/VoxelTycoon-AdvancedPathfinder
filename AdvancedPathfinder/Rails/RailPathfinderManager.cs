@@ -16,7 +16,11 @@ namespace AdvancedPathfinder.Rails
     public class RailPathfinderManager: PathfinderManager<RailPathfinderManager, Rail, RailConnection, RailSection, RailPathfinderNode, RailPathfinderEdge>
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
-        //TODO: refresh highlighted path after detaching a train
+        //TODO: refresh highlighted path after detaching a train/
+        //TODO: calculate a closed block penalty based on a distance from the start of the path
+        //TODO: add a high penalty for a occupied platform section when that section is the path target (for a better result of selecting a free platform)
+        //TODO: set a different penalty for an occupied simple block and a block with switches
+        //TODO: in testing, if a path has to be updated, test if there are more path possibilities and cache the results
         private readonly Dictionary<PathfinderNodeBase, float> _electricalNodes = new(); //nodes reachable by electric trains (value is always 1)
         private bool _closedSectionsDirty; 
         private Action<Vehicle, bool> _trainUpdatePathAction;
