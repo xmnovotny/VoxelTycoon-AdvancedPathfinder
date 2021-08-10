@@ -13,9 +13,10 @@ namespace AdvancedPathfinder.Rails
         public float MaxSpeed { get; init; }
         public float AccelerationSec { get; init; }
         public float Length { get; init; }
+        public bool CalculateOnlyBaseScore { get; init; }
 
         public RailEdgeSettings()
-        {
+        { 
         }
 
         public RailEdgeSettings(Train train)
@@ -23,6 +24,7 @@ namespace AdvancedPathfinder.Rails
             Electric = train.Electric;
             MaxSpeed = Mathf.Ceil(train.VelocityLimit / VelocityResolution) * VelocityResolution;
             Length = Mathf.Ceil(train.Length / LengthResolution) * LengthResolution;
+            CalculateOnlyBaseScore = false;
         }
     }
 }

@@ -7,11 +7,13 @@ using AdvancedPathfinder.Rails;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
 using JetBrains.Annotations;
+using MonoMod.Utils;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using VoxelTycoon;
 using VoxelTycoon.Buildings;
+using VoxelTycoon.Diagnostics;
 using VoxelTycoon.Game.UI;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
@@ -40,7 +42,7 @@ namespace AdvancedPathfinder
         
         private readonly List<TTrackSection> _sections = new();
         private readonly List<TPathfinderNode> _nodes = new();
-        private readonly List<TPathfinderNode> _reachableNodes = new(); //list of reachable nodes
+        private readonly Dictionary<PathfinderNodeBase, float> _reachableNodes = new(); //list of reachable nodes (value in this case is always 1)
 
         private readonly Dictionary<TTrack, TTrackSection> _trackToSection = new();
         /** inbound connection to node */
@@ -100,8 +102,10 @@ namespace AdvancedPathfinder
             return null;
         }
 
-        protected virtual IReadOnlyCollection<TPathfinderNode> GetNodesList(object edgeSettings)
+        protected virtual Dictionary<PathfinderNodeBase, float> GetNodesList(object edgeSettings,
+            TPathfinderNode originNode, out bool calculateReachableNodes)
         {
+            calculateReachableNodes = false;
             return _reachableNodes;
         }
 
@@ -144,9 +148,14 @@ namespace AdvancedPathfinder
         {
             return true;
         }
+
+        protected virtual object GetEdgeSettingsForCalcReachableNodes(object origEdgeSettings)
+        {
+            return origEdgeSettings;
+        }
         
         protected bool FindPath([NotNull] TTrackConnection origin, [NotNull] IVehicleDestination target,
-            object edgeSettings, List<TrackConnection> result, IReadOnlyCollection<TPathfinderNode> nodesList = null)
+            object edgeSettings, List<TrackConnection> result, Dictionary<PathfinderNodeBase, float> nodesList = null)
         {
             InvalidateGraph();
             Stopwatch sw = Stopwatch.StartNew();
@@ -160,10 +169,26 @@ namespace AdvancedPathfinder
 
             HashSet<TPathfinderNode> targetNodes = ConvertDestination(target);
             if (nodesList == null)
-                nodesList = GetNodesList(edgeSettings);
+            {
+                nodesList = GetNodesList(edgeSettings, originNode, out var calculateReachableNodes);
+                if (calculateReachableNodes)
+                {
+                    Stopwatch sw2 = Stopwatch.StartNew();
+                    object newEdgeSettings = GetEdgeSettingsForCalcReachableNodes(edgeSettings);
+                    Pathfinder.FindAll(originNode, nodesList, newEdgeSettings);
+                    Dictionary<PathfinderNodeBase, float> reachableNodes = new();
+                    Pathfinder.GetDistances(reachableNodes);
+                    originNode.SetReachableNodes(reachableNodes, newEdgeSettings);
+                    sw2.Stop();
+                    FileLog.Log($"Find reachable nodes, original count {nodesList.Count}, reachable {reachableNodes.Count}, in {(sw2.ElapsedTicks / 10000f):N2}ms");
+                    nodesList = reachableNodes;
+                }
+            }
+
             if (nodesList == null)
                 throw new ArgumentException("Cannot get node list");
-            TPathfinderNode endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings);
+            TPathfinderNode endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings, true,
+                delegate(PathfinderNodeBase nodeToUpdate, float newScore) { nodesList[nodeToUpdate] = newScore; });
             if (result != null && endNode != null)
             {
                 FindSection(origin)?.GetConnectionsToNextNode(origin, result);
@@ -197,7 +222,7 @@ namespace AdvancedPathfinder
         protected virtual void ProcessNodeToSubLists(TPathfinderNode node)
         {
             if (node.IsReachable)
-                _reachableNodes.Add(node);
+                _reachableNodes.Add(node, 0);
         }
         private void FillNodeSubLists()
         {
@@ -207,7 +232,31 @@ namespace AdvancedPathfinder
             }
         }
 
-        protected virtual void FinalizeBuildGraph() {}
+        protected void FindAllReachableNodesInternal(
+            Dictionary<PathfinderNodeBase, float> nodeList, object edgeSettings)
+        {
+            foreach (PathfinderNodeBase node in nodeList.Keys)
+            {
+                TPathfinderNode originNode = (TPathfinderNode) node;
+                Pathfinder.FindAll(originNode, _reachableNodes, edgeSettings);
+                Dictionary<PathfinderNodeBase, float> reachableNodes = new();
+                Pathfinder.GetDistances(reachableNodes);
+                originNode.SetReachableNodes(reachableNodes, edgeSettings);
+            }
+        }
+
+        protected virtual void FindAllReachableNodes()
+        {
+            FindAllReachableNodesInternal(_reachableNodes, GetEdgeSettingsForCalcReachableNodes(null));
+        }
+        
+        protected virtual void FinalizeBuildGraph()
+        {
+            Stopwatch sw = Stopwatch.StartNew();
+            FindAllReachableNodes();
+            sw.Stop();
+            FileLog.Log($"Finding all reachable nodes in {sw.ElapsedTicks / 10000f:N2}ms");
+        }
 
         private HashSet<TTrack> GetNonProcessedTracks()
         {

@@ -30,6 +30,9 @@ namespace AdvancedPathfinder.Rails
                 baseScore = _baseScoreCache[railEdgeSettings] = CalculateBaseScore(railEdgeSettings);
             }
 
+            if (railEdgeSettings.CalculateOnlyBaseScore)
+                return baseScore;
+
             baseScore += GetClosedBlocksLength();
 
             return baseScore;

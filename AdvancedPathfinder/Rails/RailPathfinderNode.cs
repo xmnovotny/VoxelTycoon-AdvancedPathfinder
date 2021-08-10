@@ -1,4 +1,5 @@
-﻿using VoxelTycoon.Tracks.Rails;
+﻿using System.Collections.Generic;
+using VoxelTycoon.Tracks.Rails;
 
 namespace AdvancedPathfinder.Rails
 {
@@ -6,6 +7,27 @@ namespace AdvancedPathfinder.Rails
     {
         public bool IsElReachable { get; private set; }
         public int NumPassableOutboundEdges { get; private set; }  //number of passable edges, that leads to this node
+        private Dictionary<PathfinderNodeBase, float> _elReachableNodes;
+
+        public override Dictionary<PathfinderNodeBase, float> GetReachableNodes(object edgeSettings)
+        {
+            if (edgeSettings is not RailEdgeSettings {Electric: true})
+            {
+                return base.GetReachableNodes(edgeSettings);
+            }
+
+            return _elReachableNodes;
+        }
+
+        internal override void SetReachableNodes(Dictionary<PathfinderNodeBase, float> reachableNodes, object edgeSettings)
+        {
+            if (edgeSettings is not RailEdgeSettings {Electric: true})
+            {
+                base.SetReachableNodes(reachableNodes, edgeSettings);
+            }
+
+            _elReachableNodes = reachableNodes;
+        }
 
         protected override void ProcessNewEdge(RailPathfinderEdge edge)
         {

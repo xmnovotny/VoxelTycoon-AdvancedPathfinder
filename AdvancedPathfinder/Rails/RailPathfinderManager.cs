@@ -17,7 +17,7 @@ namespace AdvancedPathfinder.Rails
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
-        private readonly List<RailPathfinderNode> _electricalNodes = new(); //nodes reachable by electric trains
+        private readonly Dictionary<PathfinderNodeBase, float> _electricalNodes = new(); //nodes reachable by electric trains (value is always 1)
         private bool _closedSectionsDirty; 
         private Action<Vehicle, bool> _trainUpdatePathAction;
         private readonly HashSet<RailSignal> _edgeLastSignals = new(); //last non-chain signals on edges = good place when to update a train path
@@ -49,16 +49,22 @@ namespace AdvancedPathfinder.Rails
             return _edgeLastSignals.Contains(signal);
         }
 
-        protected override IReadOnlyCollection<RailPathfinderNode> GetNodesList(object edgeSettings)
+        protected override Dictionary<PathfinderNodeBase, float> GetNodesList(object edgeSettings,
+            RailPathfinderNode originNode, out bool calculateReachableNodes)
         {
-            return edgeSettings is RailEdgeSettings {Electric: true} ? _electricalNodes : base.GetNodesList(edgeSettings);
+            calculateReachableNodes = false;
+            Dictionary<PathfinderNodeBase, float> nodes = originNode.GetReachableNodes(edgeSettings);
+            if (nodes != null)
+                return nodes;
+            calculateReachableNodes = true;
+            return edgeSettings is RailEdgeSettings {Electric: true} ? _electricalNodes : base.GetNodesList(edgeSettings, originNode, out _);
         }
 
         protected override void ProcessNodeToSubLists(RailPathfinderNode node)
         {
             base.ProcessNodeToSubLists(node);
             if (node.IsElReachable)
-                _electricalNodes.Add(node);
+                _electricalNodes.Add(node, 0);
             if (!node.IsReachable)
                 return;
 
@@ -76,6 +82,13 @@ namespace AdvancedPathfinder.Rails
                     _edgeLastSignals.Add(lastSignal);
                 }
             }
+        }
+
+        protected override void FindAllReachableNodes()
+        {
+            base.FindAllReachableNodes();
+            object edgeSettings = GetEdgeSettingsForCalcReachableNodes(new RailEdgeSettings() {Electric = true});
+            FindAllReachableNodesInternal(_electricalNodes, edgeSettings);
         }
 
         protected override void OnInitialize()
@@ -128,6 +141,11 @@ namespace AdvancedPathfinder.Rails
             base.ClearGraph();
             _electricalNodes.Clear();
             _edgeLastSignals.Clear();;
+        }
+
+        protected override object GetEdgeSettingsForCalcReachableNodes(object origEdgeSettings)
+        {
+            return (origEdgeSettings is RailEdgeSettings railEdgeSettings) ? railEdgeSettings with {CalculateOnlyBaseScore = true} : new RailEdgeSettings() {CalculateOnlyBaseScore = true};
         }
 
         protected override bool TestPathToFirstNode(List<TrackConnection> connections)

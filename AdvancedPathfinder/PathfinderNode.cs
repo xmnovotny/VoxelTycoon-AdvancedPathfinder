@@ -18,6 +18,9 @@ namespace AdvancedPathfinder
         private readonly HashSet<TTrackConnection> _inboundConnections = new();
         private readonly HashSet<TTrackConnection> _outboundConnections = new();
         private readonly List<TPathfinderEdge> _edges = new();
+
+        private Dictionary<PathfinderNodeBase, float> _reachableNodes;
+        
         private bool _initialized = false;
 
         public IReadOnlyCollection<TTrackConnection> InboundConnections => _inboundConnections;
@@ -32,6 +35,11 @@ namespace AdvancedPathfinder
         {
             return _edges;
         }
+
+        public virtual Dictionary<PathfinderNodeBase, float> GetReachableNodes(object edgeSettings)
+        {
+            return _reachableNodes;
+        }  
         
         internal virtual void Initialize(TTrackConnection inboundConnection, bool trackStart = false)
         {
@@ -80,6 +88,12 @@ namespace AdvancedPathfinder
                 _edges.Add(edge);
                 ProcessNewEdge(edge);
             }
+        }
+
+        internal virtual void SetReachableNodes(
+            Dictionary<PathfinderNodeBase, float> reachableNodes, object edgeSettings)
+        {
+            _reachableNodes = reachableNodes;
         }
 
         protected virtual void ProcessNewEdge(TPathfinderEdge edge)

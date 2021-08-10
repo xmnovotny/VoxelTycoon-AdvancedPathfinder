@@ -9,6 +9,8 @@ namespace AdvancedPathfinder
         internal abstract IReadOnlyList<PathfinderEdgeBase> GetEdges();
         [CanBeNull] internal PathfinderNodeBase PreviousBestNode { get; set; } = null;
         [CanBeNull] internal PathfinderEdgeBase PreviousBestEdge { get; set; } = null;
+        internal bool NodeIsIgnored; //used by pathfinder when finding path
+        
         private FibonacciHeapNode<PathfinderNodeBase, float> _heapNode;
         public float? LastPathLength => _heapNode?.Key < float.MaxValue ? _heapNode?.Key : null;
         public bool IsReachable { get; internal set; }  //if false, there is no inbound node that is passable in forward direction
@@ -30,12 +32,14 @@ namespace AdvancedPathfinder
 
             PreviousBestEdge = null;
             PreviousBestNode = null;
+            NodeIsIgnored = false;
             return _heapNode;
         }
 
         internal float? GetActualNodeValue()
         {
-            return _heapNode?.Key;
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            return _heapNode==null || _heapNode.Key == float.MaxValue ? null : _heapNode.Key;
         }
 
         [CanBeNull]
