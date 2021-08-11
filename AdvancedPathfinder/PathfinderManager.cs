@@ -140,10 +140,10 @@ namespace AdvancedPathfinder
         private void FillFoundedPath(TPathfinderNode originNode, TPathfinderNode targetNode, List<TrackConnection> result)
         {
             TPathfinderNode node = targetNode;
-            List<TPathfinderEdge> edges = new();
+            using PooledList<TPathfinderEdge> edges = PooledList<TPathfinderEdge>.Take();
             while (node != originNode)
             {
-                if (node == null || node.PreviousBestEdge == null)
+                if (node?.PreviousBestEdge == null)
                 {
                     throw new InvalidOperationException("Cannot reconstruct founded path");
                 }
@@ -182,28 +182,39 @@ namespace AdvancedPathfinder
             }
 
             HashSet<TPathfinderNode> targetNodes = GetConvertedDestination(target);
-            if (nodesList == null)
+            TPathfinderNode endNode;
+            if (targetNodes.Contains(originNode))
             {
-                nodesList = GetNodesList(edgeSettings, originNode, out var calculateReachableNodes);
-                if (calculateReachableNodes)
+                //first node is the target node - only fill path to the first node 
+                endNode = originNode;
+            }
+            else
+            {
+                if (nodesList == null)
                 {
-                    Stopwatch sw2 = Stopwatch.StartNew();
-                    object newEdgeSettings = GetEdgeSettingsForCalcReachableNodes(edgeSettings);
-                    Pathfinder.FindAll(originNode, nodesList, newEdgeSettings);
-                    Dictionary<PathfinderNodeBase, float> reachableNodes = new();
-                    Pathfinder.GetDistances(reachableNodes);
-                    originNode.SetReachableNodes(reachableNodes, newEdgeSettings);
-                    sw2.Stop();
-                    FileLog.Log($"Find reachable nodes, original count {nodesList.Count}, reachable {reachableNodes.Count}, in {(sw2.ElapsedTicks / 10000f):N2}ms");
-                    nodesList = reachableNodes;
+                    nodesList = GetNodesList(edgeSettings, originNode, out var calculateReachableNodes);
+                    if (calculateReachableNodes)
+                    {
+                        Stopwatch sw2 = Stopwatch.StartNew();
+                        object newEdgeSettings = GetEdgeSettingsForCalcReachableNodes(edgeSettings);
+                        Pathfinder.FindAll(originNode, nodesList, newEdgeSettings);
+                        Dictionary<PathfinderNodeBase, float> reachableNodes = new();
+                        Pathfinder.GetDistances(reachableNodes);
+                        originNode.SetReachableNodes(reachableNodes, newEdgeSettings);
+                        sw2.Stop();
+                        FileLog.Log(
+                            $"Find reachable nodes, original count {nodesList.Count}, reachable {reachableNodes.Count}, in {(sw2.ElapsedTicks / 10000f):N2}ms");
+                        nodesList = reachableNodes;
+                    }
                 }
+
+                if (nodesList == null)
+                    throw new ArgumentException("Cannot get node list");
+                endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings, true,
+                    delegate(PathfinderNodeBase nodeToUpdate, float newScore) { nodesList[nodeToUpdate] = newScore; });
+                Stats?.AddReducedNodesCount(Pathfinder.NodesUsed);
             }
 
-            if (nodesList == null)
-                throw new ArgumentException("Cannot get node list");
-            TPathfinderNode endNode = Pathfinder.FindOne(originNode, targetNodes, nodesList, edgeSettings, true,
-                delegate(PathfinderNodeBase nodeToUpdate, float newScore) { nodesList[nodeToUpdate] = newScore; });
-            Stats?.AddReducedNodesCount(Pathfinder.NodesUsed);
             if (result != null && endNode != null)
             {
                 FindSection(origin)?.GetConnectionsToNextNode(origin, result);
@@ -457,6 +468,7 @@ namespace AdvancedPathfinder
         protected virtual void ClearGraph()
         {
             _reachableNodes.Clear();
+            _convertedDestinationCache.Clear();
         }
 
         protected void BuildGraph()
