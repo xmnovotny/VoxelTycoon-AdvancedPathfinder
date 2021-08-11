@@ -24,7 +24,7 @@ namespace AdvancedPathfinder.Benchmark
         private static readonly Stopwatch PathStopwatch = new();
         private static readonly Stopwatch VehicleStopwatch = new();
         private static PathfinderStats _stats;
-        private static bool TrainMoveStart = false;
+        private static bool _trainMoveStart;
 
         protected override void Initialize()
         {
@@ -64,6 +64,12 @@ namespace AdvancedPathfinder.Benchmark
             if (stats != null)
                 return stats;
 
+            if (Manager<RailPathfinderManager>.Current != null)
+            {
+                Manager<RailPathfinderManager>.Current.CreateStats();
+                return Manager<RailPathfinderManager>.Current.Stats;
+            }
+
             if (_stats != null)
                 return _stats;
 
@@ -78,7 +84,7 @@ namespace AdvancedPathfinder.Benchmark
             if (__instance is Train)
             {
                 VehicleStopwatch.Restart();
-                TrainMoveStart = true;
+                _trainMoveStart = true;
             }
         }
 
@@ -116,7 +122,7 @@ namespace AdvancedPathfinder.Benchmark
         [HarmonyPatch(typeof(TrackUnit), "WrappedTravel")]
         private static void TrackUnit_WrappedTravel_prf()
         {
-            if (TrainMoveStart)
+            if (_trainMoveStart)
                 GetStats().StartWrappedTravel();
         }
 
@@ -124,10 +130,10 @@ namespace AdvancedPathfinder.Benchmark
         [HarmonyPatch(typeof(TrackUnit), "WrappedTravel")]
         private static void TrackUnit_WrappedTravel_pof()
         {
-            if (TrainMoveStart)
+            if (_trainMoveStart)
                 GetStats().StopWrappedTravel();
 
-            TrainMoveStart = false;
+            _trainMoveStart = false;
         }
     }
 }

@@ -76,6 +76,13 @@ namespace AdvancedPathfinder
             return (TPathfinderNode) FindSection(connection)?.FindNextNode(connection);
         }
 
+        public void CreateStats()
+        {
+            if (Stats != null)
+                throw new InvalidOperationException("Stats already created");
+            Stats = new PathfinderStats();
+        }
+
         protected virtual void ProcessFilledSection(TTrackSection section)
         {
             ImmutableUniqueList<TTrackConnection> connections = section.GetConnectionList();
@@ -522,7 +529,6 @@ namespace AdvancedPathfinder
         protected override void OnInitialize()
         {
             BuildGraph();
-            Stats = new PathfinderStats();
         }
 
 /*        private int _lastNodeIndex = 0;
