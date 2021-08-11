@@ -8,6 +8,7 @@ namespace AdvancedPathfinder
     internal class TrainHelper: SimpleLazyManager<TrainHelper>
     {
         private Func<Train, float> _updatePathTimeFieldGetter;
+        private Func<Train, IVehicleDestination> _trainDestinationFieldGetter;
         private Func<Train, PathCollection> _trainPathFieldGetter;
         private Action<Train, float> _updatePathTimeFieldSetter;
 
@@ -42,6 +43,18 @@ namespace AdvancedPathfinder
 
             // ReSharper disable once PossibleNullReferenceException
             return _trainPathFieldGetter(train);
+        }
+        
+        public IVehicleDestination GetTrainDestination(Train train)
+        {
+            if (_trainDestinationFieldGetter == null)
+            {
+                _trainDestinationFieldGetter = SimpleDelegateFactory.FieldGet<Vehicle, IVehicleDestination>("_destination");
+            }
+
+            // ReSharper disable once PossibleNullReferenceException
+
+            return _trainDestinationFieldGetter(train);
         }
     }
 }

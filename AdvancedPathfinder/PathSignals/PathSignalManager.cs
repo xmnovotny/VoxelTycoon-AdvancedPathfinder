@@ -117,7 +117,7 @@ namespace AdvancedPathfinder.PathSignals
 
         internal bool ShouldUpdatePath(Train train, RailSignal signal)
         {
-            if (Manager<RailPathfinderManager>.Current?.IsLastEdgeSignal(signal) == true)
+            if (Manager<RailPathfinderManager>.Current?.IsLastEdgeSignalWithPathDiversion(train, signal) == true)
             {
                 float updatePathTime = SimpleLazyManager<TrainHelper>.Current.GetTrainUpdatePathTime(train);
                 float currentTime = LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime;

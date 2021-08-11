@@ -16,7 +16,7 @@ namespace AdvancedPathfinder.Rails
     public class RailPathfinderManager: PathfinderManager<RailPathfinderManager, Rail, RailConnection, RailSection, RailPathfinderNode, RailPathfinderEdge>
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
-        //TODO: refresh highlighted path after detaching a train/
+        //TODO: refresh highlighted path after detaching a train
         //TODO: calculate a closed block penalty based on a distance from the start of the path
         //TODO: add a high penalty for a occupied platform section when that section is the path target (for a better result of selecting a free platform)
         //TODO: set a different penalty for an occupied simple block and a block with switches
@@ -24,7 +24,7 @@ namespace AdvancedPathfinder.Rails
         private readonly Dictionary<PathfinderNodeBase, float> _electricalNodes = new(); //nodes reachable by electric trains (value is always 1)
         private bool _closedSectionsDirty; 
         private Action<Vehicle, bool> _trainUpdatePathAction;
-        private readonly HashSet<RailSignal> _edgeLastSignals = new(); //last non-chain signals on edges = good place when to update a train path
+        private readonly Dictionary<RailSignal, RailPathfinderNode> _edgeLastSignals = new(); //last non-chain signals on edges = good place when to update a train path
 
         public bool FindImmediately([NotNull] Train train, [NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
             List<TrackConnection> result)
@@ -50,7 +50,15 @@ namespace AdvancedPathfinder.Rails
 
         public bool IsLastEdgeSignal(RailSignal signal)
         {
-            return _edgeLastSignals.Contains(signal);
+            return _edgeLastSignals.ContainsKey(signal);
+        }
+
+        public bool IsLastEdgeSignalWithPathDiversion(Train train, RailSignal signal)
+        {
+            if (!_edgeLastSignals.TryGetValue(signal, out RailPathfinderNode node))
+                return false;
+            IVehicleDestination destination = SimpleLazyManager<TrainHelper>.Current.GetTrainDestination(train);
+            return destination == null || node.HasPathDiversion(train, destination);
         }
 
         protected override Dictionary<PathfinderNodeBase, float> GetNodesList(object edgeSettings,
@@ -88,14 +96,16 @@ namespace AdvancedPathfinder.Rails
             {
                 RailPathfinderEdge edge = node.Edges[i];
                 if (!edge.IsPassable()) continue;
+
+                RailPathfinderNode nextNode = (RailPathfinderNode) edge.NextNode;
                 
-                if (edge.NextNode == null || ((RailPathfinderNode)edge.NextNode).NumPassableOutboundEdges <= 1)
+                if (nextNode is not {NumPassableOutboundEdges: > 1})
                     continue;
 
                 RailSignal lastSignal = edge.LastSignal;
                 if (!ReferenceEquals(lastSignal, null))
                 {
-                    _edgeLastSignals.Add(lastSignal);
+                    _edgeLastSignals[lastSignal] = nextNode;
                 }
             }
         }
@@ -156,7 +166,7 @@ namespace AdvancedPathfinder.Rails
         {
             base.ClearGraph();
             _electricalNodes.Clear();
-            _edgeLastSignals.Clear();;
+            _edgeLastSignals.Clear();
         }
 
         protected override object GetEdgeSettingsForCalcReachableNodes(object origEdgeSettings)

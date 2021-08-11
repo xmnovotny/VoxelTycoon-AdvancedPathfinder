@@ -49,6 +49,7 @@ namespace AdvancedPathfinder
         private readonly Dictionary<TTrackConnection, TPathfinderNode> _connectionToNode = new();
         [CanBeNull]
         private Pathfinder<TPathfinderNode> _pathfinder;
+        private readonly Dictionary<int, HashSet<TPathfinderNode>> _convertedDestinationCache = new();
         private Pathfinder<TPathfinderNode> Pathfinder { get => _pathfinder ??= new Pathfinder<TPathfinderNode>(); }
 
         private readonly HashSet<Highlighter> _highlighters = new();
@@ -110,6 +111,18 @@ namespace AdvancedPathfinder
             return _reachableNodes;
         }
 
+        internal HashSet<TPathfinderNode> GetConvertedDestination(IVehicleDestination destination)
+        {
+            int hash = destination.GetDestinationHash();
+            if (_convertedDestinationCache.TryGetValue(hash, out HashSet<TPathfinderNode> convertedDest))
+                return convertedDest;
+
+            convertedDest = ConvertDestination(destination);
+            _convertedDestinationCache[hash] = convertedDest;
+
+            return convertedDest;
+        }
+
         private HashSet<TPathfinderNode> ConvertDestination(IVehicleDestination destination)
         {
             HashSet<TPathfinderNode> result = new HashSet<TPathfinderNode>();
@@ -123,7 +136,7 @@ namespace AdvancedPathfinder
 
             return result;
         }
-
+        
         private void FillFoundedPath(TPathfinderNode originNode, TPathfinderNode targetNode, List<TrackConnection> result)
         {
             TPathfinderNode node = targetNode;
@@ -168,7 +181,7 @@ namespace AdvancedPathfinder
                 return false;
             }
 
-            HashSet<TPathfinderNode> targetNodes = ConvertDestination(target);
+            HashSet<TPathfinderNode> targetNodes = GetConvertedDestination(target);
             if (nodesList == null)
             {
                 nodesList = GetNodesList(edgeSettings, originNode, out var calculateReachableNodes);
