@@ -12,13 +12,13 @@ This mod replaces block signaling system by the path based signaling and provide
 [list]
 [*] Differentiate semaphore and light signals by slightly different behaviour -
 [list] 
-[*] semaphore will clear reserved path after a rear of the train passes the last switch in the block and there will be a small delay before a new path can be reserved
-[*] light signal will clear each path segment individually and there will be no delay
+[*] A semaphore will clear the reserved path after a rear of the train passes the last switch in the block and there will be a small delay before a new path can be reserved
+[*] A light signal will clear each path segment individually and there will be no delay
 [/list]        
-[*] Allow creating multi-aspect signals based on the path reserved from signal (straight or with reduced speed)
-[*] Real pre-signal which will have signal aspect based also on the next signal (for example green-yellow-red following signals) 
+[*] Allow creating a multi-aspect signals based on the path reserved from the signal (straight or with a reduced speed)
+[*] Real distant signal which will have a signal aspect based also on the next signal (for example green-yellow-red following signals) 
 [*] Adding an ability to safely disable path signalling to ensure that the mod can be safely removed from the game.
-[*] Warning when a train automatically turns back on switches (=usually when is longer than station track), so there is a risk of collisions 
+[*] Warning when a train automatically turns back on switches (=usually when is longer than a station track), so there is a risk of collisions 
 [/list]
 
 [b]!! Warning !![/b]
@@ -65,6 +65,11 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 0.97 beta[/b]
+[list]
+[*] Fixed bugs related to rebuilding rails within a reserved path.
+[*] Pathfinder and path signal speed optimisations. 
+[/list]
 [b]Version 0.96 beta[/b]
 [list]
 [*] Fix for a low FPS situation when a train temporarily enters a block with a signal at danger.
