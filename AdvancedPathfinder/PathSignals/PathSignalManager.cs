@@ -35,6 +35,7 @@ namespace AdvancedPathfinder.PathSignals
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
         internal readonly Dictionary<RailSignal, Train> OpenedSignals = new();
+        private static bool _wasInvalidPath;
         
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -199,6 +200,12 @@ namespace AdvancedPathfinder.PathSignals
             for (int pathIdx = path.RearIndex; pathIdx <= path.FrontIndex; pathIdx++)
             {
                 RailConnection conn = (RailConnection)path[pathIdx];
+                if (conn == null)
+                {
+                    //invalid train path, stop reserving
+                    _reservedPathIndex.Remove(train);
+                    return;
+                }
                 RailBlock[] currBlocks = {conn.Block, conn.InnerConnection.Block};
                 for (int j = 0; j < 2; j++)
                 {
@@ -531,18 +538,24 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (path.RearIndex >= newRearIndex || !_pathToTrain.TryGetValue(path, out Train train))
                 return;
-            PathShrinking(train, path, path.RearIndex, newRearIndex - 1);
+            PathShrinking(train, path, path.RearIndex, newRearIndex - 1, out _);
         }
 
-        private void PathShrinkingFront(PathCollection path, int newFrontIndex)
+        private void PathShrinkingFront(PathCollection path, ref int newFrontIndex)
         {
             if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train))
                 return;
             (int reservedIdx, int? nextDestinationIdx) reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, (int.MinValue, null));
 //            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}, newFrontIndex {newFrontIndex}, origFrontIndex {path.FrontIndex}, reservedIndex {reservedPathIndex.reservedIdx}");
+            int? invalidIndex = null;
             if (path.ContainsIndex(newFrontIndex + 1))
-                PathShrinking(train, path, newFrontIndex + 1, path.FrontIndex, reservedPathIndex.reservedIdx);
-            if (reservedPathIndex.reservedIdx > newFrontIndex || reservedPathIndex.nextDestinationIdx > newFrontIndex)
+                PathShrinking(train, path, newFrontIndex + 1, path.FrontIndex, out invalidIndex);
+            if (_wasInvalidPath)
+            {
+                newFrontIndex = invalidIndex.Value - 1;
+                _reservedPathIndex.Remove(train);
+                _updateTrainPath.Add(train);
+            } else if (reservedPathIndex.reservedIdx > newFrontIndex || reservedPathIndex.nextDestinationIdx > newFrontIndex)
             {
                 if (reservedPathIndex.nextDestinationIdx > newFrontIndex)
                     reservedPathIndex.nextDestinationIdx = null;
@@ -553,26 +566,42 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
-        private void PathShrinking(Train train, PathCollection path, int from, int to, int reservedIndex = Int32.MinValue) //indexes from and to are inclusive 
+        private void PathShrinking(Train train, PathCollection path, int from, int to, out int? invalidIndex) //indexes from and to are inclusive 
         {
             //TODO: Rework releasing path using connection instead of track, so duplicity check will not be necessary
+            _wasInvalidPath = false;
             bool changed = false;
+            invalidIndex = null;
             RailBlockData currBlockData = null;
             using PooledHashSet<Track> usedTracks = PooledHashSet<Track>.Take();
             for (int index = path.RearIndex; index < from; index++)
             {
+                if (path[index] == null)
+                {
+                    invalidIndex ??= index;
+                    _wasInvalidPath = true;
+                    continue;
+                }
+
                 usedTracks.Add(path[index].Track);
             }
             for (int index = from; index <= to; index++)
             {
                 changed = true;
                 RailConnection currConnection = (RailConnection) path[index];
+                if (currConnection == null || !currConnection.Track.IsBuilt)
+                {
+                    //invalid (=removed rail segment)
+//                    invalidIndex ??= index;
+                    continue;
+                }
+
                 if (!usedTracks.Add(currConnection.Track))
                 {
                     //path has duplicity connections, this is second round = skip releasing segment
                     continue;
                 }
-                if (currBlockData?.Block != currConnection.Block)
+                if (!ReferenceEquals(currBlockData?.Block,currConnection.Block))
                 {
                     currBlockData = ReferenceEquals(currConnection.Block, null) ? null : GetBlockData(currConnection.Block);
                 }
@@ -580,8 +609,6 @@ namespace AdvancedPathfinder.PathSignals
                 if (currBlockData != null)
                 {
                     currBlockData.ReleaseRailSegment(train, currConnection.Track);
-//                    if (reservedIndex >= index)
-//                        currBlockData.FullBlock();
                 }
 
                 currConnection = currConnection.InnerConnection;
@@ -591,8 +618,6 @@ namespace AdvancedPathfinder.PathSignals
                     if (currBlockData != null)
                     {
                         currBlockData.ReleaseRailSegment(train, currConnection.Track);
-//                        if (reservedIndex >= index)
-//                            currBlockData.FullBlock();
                     }
                 }
             }
@@ -654,7 +679,7 @@ namespace AdvancedPathfinder.PathSignals
             if (path.Count > 0 && _pathToTrain.TryGetValue(path, out Train train))
             {
 //                FileLog.Log("Path cleared");
-                PathShrinking(train, path, path.RearIndex, path.FrontIndex);
+                PathShrinking(train, path, path.RearIndex, path.FrontIndex, out _);
                 _pathToTrain.Remove(path);
             }
         }
@@ -670,7 +695,7 @@ namespace AdvancedPathfinder.PathSignals
             if (_detachingPathCache.Count > 0)
             {
 //                FileLog.Log("Path cleared");
-                PathShrinking(train, _detachingPathCache, _detachingPathCache.RearIndex, _detachingPathCache.FrontIndex);
+                PathShrinking(train, _detachingPathCache, _detachingPathCache.RearIndex, _detachingPathCache.FrontIndex, out _);
                 _detachingPathCache.Clear();
             }
             DeleteTrainData(train);
@@ -1063,7 +1088,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (!_canShrinkReservedPath && _origReservedPathIndex > Int32.MinValue)
                 newFrontIndex = _origReservedPathIndex;
-            Current?.PathShrinkingFront(__instance, newFrontIndex);
+            Current?.PathShrinkingFront(__instance, ref newFrontIndex);
             _origReservedPathIndex = int.MinValue;
 //            FileLog.Log($"Shrink front, new front index {_oldPath.IndexOf(__instance[newFrontIndex])}");
         }
@@ -1072,8 +1097,14 @@ namespace AdvancedPathfinder.PathSignals
         [HarmonyPatch(typeof(PathCollection), "AddToFront")]
         [HarmonyPatch(new Type[] {typeof(IList<TrackConnection>), typeof(int)})]
         // ReSharper disable once InconsistentNaming
-        private static void PathCollection_AddToFront_prf(PathCollection __instance, IList<TrackConnection> connections, int startIndex)
+        private static bool PathCollection_AddToFront_prf(PathCollection __instance, IList<TrackConnection> connections, int startIndex)
         {
+            if (_wasInvalidPath)
+            {
+                //invalid path between the train and the reserved index = do not add a new path, because it will have inconsistency
+                _wasInvalidPath = false;
+                return false;
+            }
             if (connections.Count > startIndex && !__instance[__instance.FrontIndex].InnerConnection.OuterConnections.Contains(connections[startIndex]))
             {
 /*                List<int> indexes = new();
@@ -1104,6 +1135,8 @@ namespace AdvancedPathfinder.PathSignals
 //                FileLog.Log($"New NextDestinationIdx {idx.nextDestinationIdx}");
                 Current._reservedPathIndex[train] = idx;
             }
+
+            return true;
         }
 
         [HarmonyFinalizer]
