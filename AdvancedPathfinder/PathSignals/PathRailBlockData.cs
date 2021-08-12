@@ -386,23 +386,28 @@ namespace AdvancedPathfinder.PathSignals
             while (index <= path.FrontIndex)
             {
                 connection = (RailConnection) path[index];
-                Rail rail = connection.Track;
-                if (rail.IsBuilt)
+                if (ReferenceEquals(connection, null))
                 {
-                    if (connection.Block != Block)
-                        throw new InvalidOperationException("Connection is from another block");
-                    yield return new RailToBlock(rail, false, false);
-                    for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
-                    {
-                        yield return new RailToBlock(rail.GetLinkedRail(j), true, false);
-                    }
+                    //invalid path, break
+                    yield break;;
+                }
 
-                    if (index != startIndex && (!ReferenceEquals(connection.Signal, null) && connection.Signal.IsBuilt || 
-                        !ReferenceEquals(connection.InnerConnection.Signal, null) && connection.InnerConnection.Signal.IsBuilt))
-                    {
-                        _lastEndSignal = connection.Signal;
-                        yield break;
-                    }
+                Rail rail = connection.Track;
+                if (!rail.IsBuilt) ////invalid path, break
+                    yield break;
+                if (connection.Block != Block)
+                    throw new InvalidOperationException("Connection is from another block");
+                yield return new RailToBlock(rail, false, false);
+                for (int j = rail.LinkedRailCount - 1; j >= 0; j--)
+                {
+                    yield return new RailToBlock(rail.GetLinkedRail(j), true, false);
+                }
+
+                if (index != startIndex && (!ReferenceEquals(connection.Signal, null) && connection.Signal.IsBuilt || 
+                    !ReferenceEquals(connection.InnerConnection.Signal, null) && connection.InnerConnection.Signal.IsBuilt))
+                {
+                    _lastEndSignal = connection.Signal;
+                    yield break;
                 }
 
                 _lastPathIndex = ++index;
