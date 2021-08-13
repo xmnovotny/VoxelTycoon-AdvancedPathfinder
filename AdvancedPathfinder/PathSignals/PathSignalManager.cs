@@ -135,16 +135,19 @@ namespace AdvancedPathfinder.PathSignals
 
             return false;
         }
-
+        
         private void AssignTrainPaths()
         { 
             ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
             TrainHelper helper = SimpleLazyManager<TrainHelper>.Current;
             for (int i = trains.Count - 1; i >= 0; i--)
             {
-                PathCollection path = helper.GetTrainPath((Train)trains[i]);
+                Train train = (Train) trains[i];
+                PathCollection path = helper.GetTrainPath(train);
                 if (path != null)
-                    _pathToTrain[path] = (Train) trains[i];
+                    _pathToTrain[path] = train;
+                SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f);
+
             }
         }
 

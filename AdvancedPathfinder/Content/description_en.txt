@@ -65,6 +65,10 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 0.99 beta[/b]
+[list]
+[*] Fixed timing of a path updating after loading a game.
+[/list]
 [b]Version 0.98 beta[/b]
 [list]
 [*] Process all tracks for pathfinder (fixes some bugs).
