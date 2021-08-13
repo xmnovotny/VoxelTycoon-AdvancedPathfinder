@@ -288,13 +288,29 @@ namespace AdvancedPathfinder
             FileLog.Log($"Finding all reachable nodes in {sw.ElapsedTicks / 10000f:N2}ms");
         }
 
-        private HashSet<TTrack> GetNonProcessedTracks()
+        private void GetNonProcessedTracks(HashSet<TTrack> nonProcessedTracks)
         {
-            HashSet<TTrack> result = new HashSet<TTrack>();
             ImmutableList<TTrack> tracks = LazyManager<BuildingManager>.Current.GetAll<TTrack>();
-            result.UnionWith(tracks.ToList());
-            result.ExceptWith(_trackToSection.Keys);
-            return result;
+            nonProcessedTracks.UnionWith(tracks.ToList());
+            nonProcessedTracks.ExceptWith(_trackToSection.Keys);
+        }
+
+        private void FindConnectionsAfterSwitch(HashSet<TTrack> tracks, HashSet<TTrackConnection> foundConnections)
+        {
+            foreach (TTrack track in tracks)
+            {
+                for (int i = track.ConnectionCount - 1; i >= 0; i--)
+                {
+                    TrackConnection conn = track.GetConnection(i);
+                    if (conn.OuterConnectionCount > 1)
+                    {
+                        foreach (TrackConnection outerConnection in conn.OuterConnections)
+                        {
+                            foundConnections.Add((TTrackConnection) outerConnection);
+                        }
+                    }
+                }
+            }
         }
 
         private void FindSections(HashSet<TTrackConnection> foundNodesConnections)
@@ -302,36 +318,72 @@ namespace AdvancedPathfinder
             _sections.Clear();
             _trackToSection.Clear();
 
-            HashSet<TTrackConnection> connectionsToProcess = new();
-            HashSet<TTrack> processedTracks = new();
+            using PooledHashSet<TTrackConnection> connectionsToProcess = PooledHashSet<TTrackConnection>.Take();
+            using PooledHashSet<TTrack> processedTracks = PooledHashSet<TTrack>.Take();
+            using PooledHashSet<TTrack> nonProcessedTracks = PooledHashSet<TTrack>.Take();
+            bool addedStationStops = false;
+            bool addedSwitches = false;
+
             IReadOnlyCollection<TTrackConnection> stationStopsConnections = GetStationStopsConnections();
             TrackHelper.GetStartingConnections<TTrack, TTrackConnection>(connectionsToProcess);
             TTrackSection section = null;
-            int count = 0;
-            long ticks = 0;
-            Stopwatch sw = new Stopwatch();
-            while (connectionsToProcess.Count > 0)
+            ImmutableList<TTrack> tracks = LazyManager<BuildingManager>.Current.GetAll<TTrack>();
+            nonProcessedTracks.UnionWith(tracks.ToList());  //mark all tracks as unprocessed
+
+            while (true)
             {
-                sw.Restart();
-                count++;
+                if (connectionsToProcess.Count == 0)
+                {
+                    nonProcessedTracks.ExceptWith(_trackToSection.Keys); //except all processed tracks from nonprocessed tracks
+
+                    if (nonProcessedTracks.Count == 0)
+                        break;
+                    if (!addedSwitches)
+                    {
+                        //find unprocessed connections just after switches
+                        addedSwitches = true;
+                        FindConnectionsAfterSwitch(nonProcessedTracks, connectionsToProcess);
+                        continue;
+                    }
+                    if (!addedStationStops && stationStopsConnections?.Count > 0)
+                    {
+                        //try start processing from stations 
+                        addedStationStops = true;
+                        foreach (TTrackConnection connection in stationStopsConnections)
+                        {
+                            if (!processedTracks.Contains(connection.Track))
+                                connectionsToProcess.Add((TTrackConnection)connection.InnerConnection); //from the end of platform back to the start of platform
+                            foreach (TrackConnection outerConnection in connection.InnerConnection.OuterConnections)
+                            {
+                                //from the track beyond the platform away from station
+                                if (!processedTracks.Contains(outerConnection.Track))
+                                    connectionsToProcess.Add((TTrackConnection) outerConnection);
+                            }
+                        }
+                        continue;
+                    }
+                    //only simple circular track remained, add one of unprocessed connection to process until all tracks are processed
+                    connectionsToProcess.Add((TTrackConnection) nonProcessedTracks.First().GetConnection(0));
+                }
                 TTrackConnection currentConn = connectionsToProcess.First();
                 connectionsToProcess.Remove(currentConn);
+                if (processedTracks.Contains(currentConn.Track))
+                    continue;
                 if (section == null) //for reusing created and unfilled section from previous cycle
                 {
                     section = new TTrackSection();
                 }
                 if (section.Fill(currentConn, stationStopsConnections, processedTracks, connectionsToProcess, foundNodesConnections))
                 {
-                    sw.Stop();
                     _sections.Add(section);
                     ProcessFilledSection(section);
                     section = null;
                 }
-                ticks += sw.ElapsedTicks;
+
             }
             //FileLog.Log($"Found {_sections.Count} sections, iterations: {count}, average per iteration: {(count > 0 ? (ticks / count / 10000) : 0)}");
 
-            HashSet<TTrack> nonProcessedTracks = GetNonProcessedTracks();
+//            HashSet<TTrack> nonProcessedTracks = GetNonProcessedTracks();
             
 //            FileLog.Log($"Unprocessed tracks: {nonProcessedTracks.Count}");
             if (nonProcessedTracks.Count > 0)
@@ -482,6 +534,7 @@ namespace AdvancedPathfinder
         {
             try
             {
+                HideHighlighters();
                 Stopwatch sw = Stopwatch.StartNew();
                 ClearGraph();
                 HashSet<TTrackConnection> foundNodesConnections = new();

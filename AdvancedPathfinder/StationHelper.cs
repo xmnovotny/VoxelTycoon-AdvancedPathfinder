@@ -87,29 +87,5 @@ namespace AdvancedPathfinder
 
             _isDirty = false;
         }
-        
-/*        #region HARMONY
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(Building), "OnBuilt")]
-        private static void VehicleStation_OnBuilt_pof(Building __instance)
-        {
-            if (__instance is RailStation station)
-            {
-                Current._isDirty = true;
-            }
-        }
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(VehicleStation), "OnRemoved")]
-        private static void VehicleStation_OnRemoved_pof(VehicleStation __instance)
-        {
-            if (__instance is RailStation station)
-            {
-                Current._isDirty = true;
-            }
-        }
-
-        #endregion*/
     }
 }

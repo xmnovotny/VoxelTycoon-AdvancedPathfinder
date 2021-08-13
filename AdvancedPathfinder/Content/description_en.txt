@@ -84,7 +84,7 @@ Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetai
 [b]Version 0.94 beta[/b]
 [list]
 [*] Fixed null reference bug after loading save file when some track has no signal block
-[*] Trrain path is updated only when it makes sense - obly before reaching signal before point from which path can be altered.
+[*] Train path is updated only when it makes sense - obly before reaching signal before point from which path can be altered.
 [/list]
 [b]Version 0.93 beta[/b]
 [list]

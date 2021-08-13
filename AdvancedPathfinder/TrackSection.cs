@@ -226,10 +226,10 @@ namespace AdvancedPathfinder
         
         internal bool Fill(TTrackConnection startConnection,[CanBeNull] IReadOnlyCollection<TTrackConnection> stationStopsConnections, HashSet<TTrack> processedTracks, HashSet<TTrackConnection> connectionsToProcess, HashSet<TTrackConnection> foundNodesList)
         {
-            if (startConnection.Track is not TTrack)
+            if (startConnection.Track is not TTrack connectionTrack)
                 throw new ArgumentException("Connection track is not type of TTrack");
 
-            if (processedTracks.Contains((TTrack) startConnection.Track))
+            if (processedTracks.Contains(connectionTrack))
                 return false;
 
             for (int i = 0; i < startConnection.OuterConnectionCount; i++)
@@ -246,23 +246,25 @@ namespace AdvancedPathfinder
             {
                 currentEnd = (TTrackConnection) current.InnerConnection;
                 TTrack track = (TTrack) current.Track;
-                if (track == null || !track.IsBuilt)
+                if (ReferenceEquals(track, null) || !track.IsBuilt)
                 {
-                    FileLog.Log("Invalid track");
+//                    FileLog.Log("Invalid track");
+                    AdvancedPathfinderMod.Logger.LogError("Invalid track");
                     return false;
                 }
 
                 if (!processedTracks.Add(track))
                 {
-                    FileLog.Log("Failed track");
-                    return false;
+                    //possible circular track, break processing
+                    break;
                 }
                 ProcessTrack(track, current);
                 if (IsNodeOnTheEnd(currentEnd, stationStopsConnections))
                 {
-                    if (currentEnd.Track == null)
+                    if (ReferenceEquals(currentEnd.Track, null) || !currentEnd.Track.IsBuilt)
                     {
-                        FileLog.Log("End track is null");
+//                        FileLog.Log("End track is null");
+                        AdvancedPathfinderMod.Logger.LogError("End track is null");
                     }
                     //node at the end of the connection
                     isNodeAtEnd = true;
@@ -301,7 +303,8 @@ namespace AdvancedPathfinder
                 foundNodesList.Add(First);
                 if (First.Track == null)
                 {
-                    FileLog.Log("First.Track == null");
+                    //FileLog.Log("First.Track == null");
+                    AdvancedPathfinderMod.Logger.LogError("First.Track == null");
                 }
             }
 
@@ -310,7 +313,8 @@ namespace AdvancedPathfinder
                 foundNodesList.Add(Last);
                 if (Last.Track == null)
                 {
-                    FileLog.Log("Last.Track == null");
+                    //FileLog.Log("Last.Track == null");
+                    AdvancedPathfinderMod.Logger.Log("Last.Track == null");
                 }
             }
 
