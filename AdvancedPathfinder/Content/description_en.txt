@@ -68,6 +68,7 @@ Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetai
 [b]Version 0.99 beta[/b]
 [list]
 [*] Fixed timing of a path updating after loading a game.
+[*] Fixed detecting of simple blocks when there was only crossings and no switches.
 [/list]
 [b]Version 0.98 beta[/b]
 [list]

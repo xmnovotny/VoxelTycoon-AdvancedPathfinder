@@ -323,58 +323,57 @@ namespace AdvancedPathfinder.PathSignals
 
         private bool IsSimpleBlock(RailBlockData blockData)
         {
-                using PooledHashSet<RailSignal> signalsToCheck = PooledHashSet<RailSignal>.Take();
-                int inbCount = blockData.InboundSignals.Count;
-                if (inbCount == 0)
-                {
+            int inbCount = blockData.InboundSignals.Count;
+            switch (inbCount)
+            {
+                case 0:
+                    //no signal = simple block
                     return true;
-                }
+                case > 2:
+                    //more than 2 signals = not a simple block
+                    return false;
+            }
 
-                foreach (RailSignal signal in blockData.InboundSignals.Keys)
+            foreach (RailSignal railSignal in blockData.InboundSignals.Keys)
+            {
+                if (PathSignalData.CheckIsChainSignal(railSignal)) //some of inbound signals are chain = no simple block
+                    return false;
+            }
+
+            RailSignal signal = blockData.InboundSignals.Keys.First();
+            RailConnection connection = signal.Connection.InnerConnection;
+            while (true)
+            {
+                switch (connection.OuterConnectionCount)
                 {
-                    if (PathSignalData.CheckIsChainSignal(signal)) //some of inbound signals are chain = no simple block
+                    case > 1:
                         return false;
-                    ;
+                    case 0:
+                        //end of track, simple block only when there is only one inbound signal
+                        return inbCount == 1;
                 }
 
-                signalsToCheck.Clear();
-                signalsToCheck.UnionWith(blockData.InboundSignals.Keys);
-                while (signalsToCheck.Count > 0)
+                connection = (RailConnection) connection.OuterConnections[0];
+                if (connection.OuterConnectionCount > 1)
                 {
-                    RailSignal signal = signalsToCheck.First();
-                    signalsToCheck.Remove(signal);
-                    RailConnection connection = signal.Connection.InnerConnection;
-                    while (true)
-                    {
-                        if (connection.OuterConnectionCount > 1)
-                        {
-                            return false;
-                        }
-
-                        if (connection.OuterConnectionCount == 0) //end of track
-                            break;
-
-                        connection = (RailConnection) connection.OuterConnections[0];
-                        if (connection.OuterConnectionCount > 1)
-                        {
-                            return false;
-                        }
-
-                        connection = connection.InnerConnection;
-
-                        if (connection.Signal != null)
-                        {
-                            //opposite signal - we can safely remove it from testing
-                            signalsToCheck.Remove(connection.Signal);
-                            break;
-                        }
-
-                        if (connection.InnerConnection.Signal != null) //next signal, end of searching path of this signal
-                            break;
-                    }
+                    return false;
                 }
 
-                return true;
+                connection = connection.InnerConnection;
+
+                if (connection.Signal != null)
+                {
+                    //opposite signal - if there are two signals in inbound signals, it should be the second one
+                    return inbCount == 1 ||
+                           inbCount == 2 && blockData.InboundSignals.ContainsKey(connection.Signal);
+                }
+
+                if (connection.InnerConnection.Signal != null)
+                {
+                    //next signal, there should be only one signal in inbound signals for a simple block
+                    return inbCount == 1;
+                }
+            }
         }
 
         /**
