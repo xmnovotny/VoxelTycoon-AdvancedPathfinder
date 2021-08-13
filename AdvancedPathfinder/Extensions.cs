@@ -6,6 +6,7 @@ namespace AdvancedPathfinder
     {
         public static int GetDestinationHash(this IVehicleDestination destination)
         {
+            destination.Invalidate();
             int result = 0;
             foreach (TrackConnection trackConnection in destination.Stops)
             {
