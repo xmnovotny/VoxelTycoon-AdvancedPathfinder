@@ -124,8 +124,8 @@ namespace AdvancedPathfinder.PathSignals
                     if (!ReferenceEquals(nextSignalData.ReservedForTrain, train)) //if path is reserved for this train, we can stop finding following chain signals
                     {
                         RailBlockData nextBlockData = nextSignalData.BlockData;
-                        if (nextBlockData == this)
-                            return false; //invalid block configuration - signal between same blocks 
+//                        if (nextBlockData == this)
+//                            return false; //invalid block configuration - signal between same blocks 
                         if (!nextBlockData.TryReservePath(train, path, _lastPathIndex, out reservedIndex))
                             return false;
                     }
@@ -171,10 +171,14 @@ namespace AdvancedPathfinder.PathSignals
 
             //find and store all connections in the path within this block 
             using PooledList<RailConnection> connections = PooledList<RailConnection>.Take();
-            while (connection != null && ReferenceEquals(connection.Block, Block) && idx<path.FrontIndex)
+            while (idx<path.FrontIndex)
             {
                 connections.Add(connection);
                 connection = (RailConnection)path[++idx];
+                if (ReferenceEquals(connection, null) || !ReferenceEquals(connection.Block, Block) || 
+                    !ReferenceEquals(connection.Signal, null) && connection.Signal.IsBuilt  || 
+                    !ReferenceEquals(connection.InnerConnection.Signal, null) && connection.InnerConnection.Signal.IsBuilt)
+                    break;
             }
 
             if (connection != null && ReferenceEquals(connection.InnerConnection.Block, Block))
@@ -187,7 +191,7 @@ namespace AdvancedPathfinder.PathSignals
             using PooledDictionary<Rail, int> blockedRailsSum = PooledDictionary<Rail, int>.Take();
             
             if (idx<path.FrontIndex && !ReferenceEquals(connection, null))
-                ReleaseBeyondPath(train, releasedRailsSum); //we have reached new block, so we can dispose beyond path
+                ReleaseBeyondPath(train, releasedRailsSum); //we have reached a next signal, so we can dispose beyond path
 
             foreach (RailConnection railConnection in connections)
             {
@@ -382,7 +386,8 @@ namespace AdvancedPathfinder.PathSignals
             RailConnection connection = (RailConnection)path[startIndex];
             if (connection.InnerConnection.Block != Block)
                 throw new InvalidOperationException("Connection is from another block");
-            yield return new RailToBlock(connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
+//            yield return new RailToBlock(connection.Track, false, false); //track with the inbound signal - we reserve only this track, not linked
+//            index++;
             while (index <= path.FrontIndex)
             {
                 connection = (RailConnection) path[index];

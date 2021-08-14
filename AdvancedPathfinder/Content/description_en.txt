@@ -67,6 +67,7 @@ Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetai
 [h2] Latest changes [/h2]
 [b]Version 0.99 beta[/b]
 [list]
+[*] Allow signals in the middle of one signalling block (in vanilla game this signals are not be passable by the train)
 [*] Fixed timing of a path updating after loading a game.
 [*] Fixed detecting of simple blocks when there was only crossings and no switches.
 [/list]

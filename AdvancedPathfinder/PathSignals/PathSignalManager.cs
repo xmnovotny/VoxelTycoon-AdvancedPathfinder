@@ -25,7 +25,6 @@ namespace AdvancedPathfinder.PathSignals
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
         //TODO: Fix fully block a block when passing a signal at red while no train is in the block
-        //TODO: Allow signals between same block (=invalid block in block signalling system)
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
@@ -480,7 +479,7 @@ namespace AdvancedPathfinder.PathSignals
                 return false;
             }
 
-            bool result = signalData.BlockData.TryReservePath(train, path, pathIndex.Value, out int reservedPathIndex) && signalData.ReservedForTrain == train;
+            bool result = signalData.BlockData.TryReservePath(train, path, pathIndex.Value, out int reservedPathIndex) && ReferenceEquals(signalData.ReservedForTrain, train);
 //            FileLog.Log($"IsSignalOpenForTrain 2 {result}, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (result)
             {
