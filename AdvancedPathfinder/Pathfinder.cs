@@ -48,7 +48,7 @@ namespace AdvancedPathfinder
                 if (finalScore > desiredMaxScore)
                 {
                     doUpdateNodeScore?.Invoke(checker.FoundNode, finalScore);
-                    FileLog.Log("Final score is higher than max. score of selected nodes. Refind with higher max. score");
+                    //FileLog.Log("Final score is higher than max. score of selected nodes. Refind with higher max. score");
                     //there is a possibility that found path is not shortest = try extend max score to this value
                     Initialize(startNode, nodeList, finalScore);
                     checker = new OneOfManyNodesTargetChecker(targetNodes);
@@ -56,7 +56,9 @@ namespace AdvancedPathfinder
                 }
 
                 return checker.FoundNode;
-            } else if (reduceNodes)
+            }
+
+            if (reduceNodes)
             {
                 //path was not found with reduced node list, retry find with all nodes
                 FileLog.Log("Path was not found with reduced node list. Refind with full list.");

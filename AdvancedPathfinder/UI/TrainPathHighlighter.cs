@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -13,9 +14,12 @@ using XMNUtils;
 namespace AdvancedPathfinder.UI
 {
     [HarmonyPatch]
-    public class TrainPathHighlighter: LazyManager<TrainPathHighlighter>
+    public class TrainPathHighlighter: SimpleLazyManager<TrainPathHighlighter>
     {
+        private bool _displayIndividualPaths;
         private readonly Dictionary<Train, TrainData> _data = new();
+        private readonly HashSet<Train> _displayedWindow = new();
+        private bool _displayAllTrainsPaths;
         private readonly Color[] _colors = 
         {
             Color.blue.WithAlpha(0.5f),
@@ -36,34 +40,126 @@ namespace AdvancedPathfinder.UI
             }
         }
 
+        public bool DisplayIndividualPaths
+        {
+            get => _displayIndividualPaths;
+            set
+            {
+                if (_displayIndividualPaths != value)
+                {
+                    _displayIndividualPaths = value;
+                    if (_displayAllTrainsPaths)
+                        return;
+                    if (value)
+                    {
+                        foreach (Train train in _displayedWindow)
+                        {
+                            ShowForInternal(train);
+                        }
+                    } else 
+                    {
+                        foreach (Train train in _displayedWindow)
+                        {
+                            HideForInternal(train);
+                        }
+                    }
+                }
+            }
+        }
+
+        public bool DisplayAllTrainsPaths
+        {
+            get => _displayAllTrainsPaths;
+            set
+            {
+                if (_displayAllTrainsPaths != value)
+                {
+                    _displayAllTrainsPaths = value;
+                    if (value)
+                        ShowForAll();
+                    else
+                        HideForAll();
+                }
+            }
+        }
+
         public void ShowFor(Train train)
         {
-            if (_data.ContainsKey(train))
+            if (_displayedWindow.Contains(train))
             {
                 throw new InvalidOperationException("Already displayed for this train");
             }
+            _displayedWindow.Add(train);
+            ShowForInternal(train);
+        }
 
-            TrainData data = new TrainData(train, GetTrainPath(train), GetColor());
+        public void HideFor(Train train)
+        {
+            if (!_displayAllTrainsPaths)
+                HideForInternal(train);
+            _displayedWindow.Remove(train);
+        }
+
+        protected override void OnInitialize()
+        {
+            SimpleLazyManager<TrainHelper>.Current.RegisterTrainAttachedAction(OnTrainAttached);
+            SimpleLazyManager<TrainHelper>.Current.RegisterTrainDetachedAction(OnTrainDetached);
+        }
+
+        private void OnTrainAttached(Train train, PathCollection path)
+        {
+            if (_displayAllTrainsPaths || _displayedWindow.Contains(train))
+                ShowForInternal(train);
+        }
+
+        private void OnTrainDetached(Train train)
+        {
+            HideForInternal(train);
+        }
+
+        private void ShowForAll()
+        {
+            ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
+            for (int i = trains.Count - 1; i >= 0; i--)
+            {
+                Train train = (Train) trains[i];
+                ShowForInternal(train);
+            }
+        }
+
+        private void HideForAll()
+        {
+            foreach (Train train in _data.Keys.ToArray())
+            {
+                if (!_displayedWindow.Contains(train))
+                    HideForInternal(train);
+            }
+        }
+
+        private void UpdatePath(Train train, bool force=false)
+        {
+            if (_data.TryGetValue(train, out TrainData data))
+            {
+                data.RedrawPath(force);
+            }
+        }
+
+        private void ShowForInternal(Train train)
+        {
+            if (_data.ContainsKey(train))
+                return;
+            TrainData data = new TrainData(train, SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train), GetColor());
             _data.Add(train, data);
             data.RedrawPath();
         }
 
-        public void HideFor(Train train)
+        private void HideForInternal(Train train)
         {
             if (_data.TryGetValue(train, out TrainData data))
             {
                 data.ReleaseHighlighters();
                 _usedColors.AddIntToDict(data.Color, -1);
                 _data.Remove(train);
-                
-            }
-        }
-
-        public void UpdatePath(Train train, bool force=false)
-        {
-            if (_data.TryGetValue(train, out TrainData data))
-            {
-                data.RedrawPath(force);
             }
         }
 
@@ -87,11 +183,6 @@ namespace AdvancedPathfinder.UI
             }
             _usedColors.AddIntToDict(minColor, 1);
             return minColor;
-        }
-        
-        private PathCollection GetTrainPath(Train train)
-        {
-            return Traverse.Create(train).Field<PathCollection>("Path").Value;
         }
         
         private class TrainData/*: IDisposable*/

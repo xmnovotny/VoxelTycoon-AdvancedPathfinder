@@ -24,12 +24,12 @@ namespace AdvancedPathfinder.PathSignals
     {
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
-        //TODO: Fix fully block a block when passing a signal at red while no train is in the block 
+        //TODO: Fix fully block a block when passing a signal at red while no train is in the block
+        //TODO: Allow signals between same block (=invalid block in block signalling system)
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new(); //for delay of passing signal 
-        private readonly Dictionary<PathCollection, Train> _pathToTrain = new();
         private readonly HashSet<Train> _updateTrainPath = new(); //trains which have to update path on LateUpdate
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
@@ -90,11 +90,13 @@ namespace AdvancedPathfinder.PathSignals
             Stopwatch sw = Stopwatch.StartNew();
             ModSettings<Settings>.Current.Subscribe(OnSettingsChanged);
             FindBlocksAndSignals();
-            AssignTrainPaths();
+            SetTrainsPathUpdateTimes();
             sw.Stop();
             SimpleLazyManager<RailBlockHelper>.Current.OverrideBlockIsOpen = true;
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockCreatedAction(BlockCreated);
             SimpleLazyManager<RailBlockHelper>.Current.RegisterBlockRemovingAction(BlockRemoving);
+            SimpleLazyManager<TrainHelper>.Current.RegisterTrainAttachedAction(TrainAttached);
+            SimpleLazyManager<TrainHelper>.Current.RegisterTrainDetachedAction(TrainDetached);
             ReserveTrainsPathsAfterStart();
 //            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
         }
@@ -136,17 +138,12 @@ namespace AdvancedPathfinder.PathSignals
             return false;
         }
         
-        private void AssignTrainPaths()
+        private void SetTrainsPathUpdateTimes()
         { 
             ImmutableList<Vehicle> trains = LazyManager<VehicleManager>.Current.GetAll<Train>();
-            TrainHelper helper = SimpleLazyManager<TrainHelper>.Current;
             for (int i = trains.Count - 1; i >= 0; i--)
             {
-                Train train = (Train) trains[i];
-                PathCollection path = helper.GetTrainPath(train);
-                if (path != null)
-                    _pathToTrain[path] = train;
-                SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f);
+                SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime((Train)trains[i], LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f);
 
             }
         }
@@ -451,7 +448,6 @@ namespace AdvancedPathfinder.PathSignals
                 Manager<RailPathfinderManager>.Current.Stats?.StopSignalOpenForTrain();
                 return ReferenceEquals(reservedTrain, train);
             }
-            _pathToTrain[path] = train;
             PathSignalData signalData = GetPathSignalData(signal);
             if (signalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
                 return false;
@@ -537,14 +533,14 @@ namespace AdvancedPathfinder.PathSignals
 
         private void PathShrinkingRear(PathCollection path, int newRearIndex)
         {
-            if (path.RearIndex >= newRearIndex || !_pathToTrain.TryGetValue(path, out Train train))
+            if (path.RearIndex >= newRearIndex || !SimpleLazyManager<TrainHelper>.Current.GetTrainFromPath(path, out Train train))
                 return;
             PathShrinking(train, path, path.RearIndex, newRearIndex - 1, out _);
         }
 
         private void PathShrinkingFront(PathCollection path, ref int newFrontIndex)
         {
-            if (path.FrontIndex <= newFrontIndex || !_pathToTrain.TryGetValue(path, out Train train))
+            if (path.FrontIndex <= newFrontIndex || !SimpleLazyManager<TrainHelper>.Current.GetTrainFromPath(path, out Train train))
                 return;
             (int reservedIdx, int? nextDestinationIdx) reservedPathIndex = _reservedPathIndex.GetValueOrDefault(train, (int.MinValue, null));
 //            FileLog.Log($"Path front shrinking {train.GetHashCode():X8}, newFrontIndex {newFrontIndex}, origFrontIndex {path.FrontIndex}, reservedIndex {reservedPathIndex.reservedIdx}");
@@ -643,7 +639,7 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
-        private void TrainAttached(PathCollection path)
+        private void TrainAttached(Train train, PathCollection path)
         {
             RailBlock lastBlock = null;
             for (int i = path.RearIndex; i < path.FrontIndex; i++)
@@ -663,6 +659,7 @@ namespace AdvancedPathfinder.PathSignals
                     lastBlock = block;
                 }
             }
+            SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f);
             HighlightReservedPaths();
         }
 
@@ -677,11 +674,10 @@ namespace AdvancedPathfinder.PathSignals
         private void PathClearing(PathCollection path)
         {
 //            FileLog.Log("Path clearing");
-            if (path.Count > 0 && _pathToTrain.TryGetValue(path, out Train train))
+            if (path.Count > 0 && SimpleLazyManager<TrainHelper>.Current.GetTrainFromPath(path, out Train train))
             {
 //                FileLog.Log("Path cleared");
                 PathShrinking(train, path, path.RearIndex, path.FrontIndex, out _);
-                _pathToTrain.Remove(path);
             }
         }
 
@@ -711,7 +707,6 @@ namespace AdvancedPathfinder.PathSignals
             {
                 _detachingPathCache.AddToFront(path[i]);
             }
-            _pathToTrain.Remove(path);
         }
 
         private void BlockRemoving(RailBlock block)
@@ -843,7 +838,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private void HighlightReservedBounds()
         {
-            foreach (KeyValuePair<PathCollection, Train> pair in _pathToTrain)
+            foreach (KeyValuePair<PathCollection, Train> pair in SimpleLazyManager<TrainHelper>.Current.PathToTrain)
             {
                 if (_reservedPathIndex.TryGetValue(pair.Value, out (int reservedIdx, int? nextDestinationIdx) reservedIndex))
                 {
@@ -1018,30 +1013,7 @@ namespace AdvancedPathfinder.PathSignals
         #endregion
 
         #region TrainMovement
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(TrackUnit), "Attach")]
-        // ReSharper disable once InconsistentNaming
-        private static void TrackUnit_Attach_pof(TrackUnit __instance, PathCollection ___Path)
-        {
-            if (Current != null && __instance is Train train)
-            {
-                Current.TrainAttached(___Path);
-            }
-        }
-
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(TrackUnit), "Detach")]
-        // ReSharper disable once InconsistentNaming
-        private static void TrackUnit_Detach_pof(TrackUnit __instance)
-        {
-            if (Current != null && __instance is Train train)
-            {
-//                FileLog.Log("TrainDetached");
-                Current.TrainDetached(train);
-            }
-        }
-
+        
         [HarmonyPrefix]
         [HarmonyPatch(typeof(TrackUnit), "Detach")]
         // ReSharper disable once InconsistentNaming
@@ -1123,13 +1095,13 @@ namespace AdvancedPathfinder.PathSignals
 //                FileLog.Log("New indexes " + indexes2.Join());
 
                 _nextDestinationResultIdx = null;
-                if (Current != null && Current._pathToTrain.TryGetValue(__instance, out Train train2))
+                if (Current != null && SimpleLazyManager<TrainHelper>.Current.GetTrainFromPath(__instance, out Train train2))
                 {
                     Current._reservedPathIndex.Remove(train2);  //remove any reservation
                 }
                 throw new InvalidOperationException("Inconsistent add to path front.");
             }
-            if (_nextDestinationResultIdx.HasValue && Current != null && Current._pathToTrain.TryGetValue(__instance, out Train train))
+            if (_nextDestinationResultIdx.HasValue && Current != null && SimpleLazyManager<TrainHelper>.Current.GetTrainFromPath(__instance, out Train train))
             {
                 (int reservedIdx, int? nextDestinationIdx) idx = Current._reservedPathIndex.GetValueOrDefault(train, (Int32.MinValue, _nextDestinationResultIdx));
                 idx.nextDestinationIdx = _nextDestinationResultIdx + __instance.FrontIndex - 1;

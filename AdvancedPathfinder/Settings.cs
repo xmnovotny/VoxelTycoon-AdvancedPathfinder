@@ -7,6 +7,7 @@ namespace AdvancedPathfinder
     internal class Settings : ModSettings<Settings>
     {
         private bool _highlightTrainPaths;
+        private bool _highlightAllTrainPaths;
         private bool _highlightReservedPaths;
         private bool _highlightReservedPathsExtended;
 
@@ -14,6 +15,12 @@ namespace AdvancedPathfinder
             get => _highlightTrainPaths;
             set =>  SetProperty<bool>(value, ref _highlightTrainPaths);
         }
+
+        public bool HighlightAllTrainPaths { 
+            get => _highlightAllTrainPaths;
+            set =>  SetProperty(value, ref _highlightAllTrainPaths);
+        }
+        
         public bool HighlightReservedPaths
         {
             get => _highlightReservedPaths; 

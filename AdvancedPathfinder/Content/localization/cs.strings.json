@@ -1,5 +1,7 @@
 ﻿{
   "advanced_pathfinder_mod/highlight_train_path": "Zvýraznit trasu vlaku při otevřeném okně vozidla",
+  "advanced_pathfinder_mod/highlight_all_train_path": "Zvýraznit trasu všech vlaků",
+  "advanced_pathfinder_mod/highlight_all_train_path_notice": "(může negativně ovlivnit výkon hry)",
   "advanced_pathfinder_mod/highlight_reserved_path": "Zvýraznit rezervovanou cestu cestového návěstidla",
   "advanced_pathfinder_mod/highlight_reserved_path_extended": "Přídavné zvýraznění pro cestová návěstidla (pro debugging)"
 }

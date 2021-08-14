@@ -125,7 +125,7 @@ namespace AdvancedPathfinder.PathSignals
                     {
                         RailBlockData nextBlockData = nextSignalData.BlockData;
                         if (nextBlockData == this)
-                            throw new InvalidOperationException("Next block in the path is the same block");
+                            return false; //invalid block configuration - signal between same blocks 
                         if (!nextBlockData.TryReservePath(train, path, _lastPathIndex, out reservedIndex))
                             return false;
                     }

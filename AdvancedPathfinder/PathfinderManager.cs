@@ -285,7 +285,7 @@ namespace AdvancedPathfinder
             Stopwatch sw = Stopwatch.StartNew();
             FindAllReachableNodes();
             sw.Stop();
-            FileLog.Log($"Finding all reachable nodes in {sw.ElapsedTicks / 10000f:N2}ms");
+//            FileLog.Log($"Finding all reachable nodes in {sw.ElapsedTicks / 10000f:N2}ms");
         }
 
         private void GetNonProcessedTracks(HashSet<TTrack> nonProcessedTracks)

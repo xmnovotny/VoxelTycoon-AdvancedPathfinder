@@ -19,6 +19,15 @@ namespace AdvancedPathfinder.UI
                 settings.HighlightTrainPaths = false;
             });
 
+            settingsControl.AddToggle(locale.GetString("advanced_pathfinder_mod/highlight_all_train_path"), 
+                locale.GetString("advanced_pathfinder_mod/highlight_all_train_path_notice"), settings.HighlightAllTrainPaths, delegate ()
+            {
+                settings.HighlightAllTrainPaths = true;
+            }, delegate ()
+            {
+                settings.HighlightAllTrainPaths = false;
+            });
+
             settingsControl.AddToggle(locale.GetString("advanced_pathfinder_mod/highlight_reserved_path"), null, settings.HighlightReservedPaths, delegate ()
             {
                 settings.HighlightReservedPaths = true;

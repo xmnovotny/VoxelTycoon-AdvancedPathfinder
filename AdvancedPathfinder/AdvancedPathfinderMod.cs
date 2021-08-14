@@ -40,6 +40,7 @@ namespace AdvancedPathfinder
 
         protected override void OnGameStarted()
         {
+            ModSettings<Settings>.Current.Subscribe(OnSettingsChanged);
 #if DISABLE
 #else
             ModSettingsWindowManager.Current.Register<SettingsWindowPage>("AdvancedPathfinder"/* this.GetType().Name*/, "Path signals & improved pathfinder");
@@ -49,6 +50,7 @@ namespace AdvancedPathfinder
                 SimpleManager<PathSignalManager>.Initialize();
             }
 #endif
+            OnSettingsChanged();
         }
 
         protected override void Deinitialize()
@@ -74,6 +76,14 @@ namespace AdvancedPathfinder
                 SimpleManager<PathSignalManager>.Current.Read(reader);
             }
 #endif
+        }
+
+        private void OnSettingsChanged()
+        {
+            SimpleLazyManager<TrainPathHighlighter>.Current.DisplayIndividualPaths =
+                ModSettings<Settings>.Current.HighlightTrainPaths;
+            SimpleLazyManager<TrainPathHighlighter>.Current.DisplayAllTrainsPaths =
+                ModSettings<Settings>.Current.HighlightAllTrainPaths;
         }
         
         private static void ShowUpdatePathHint(double elapsedMilliseconds, Train train)
@@ -135,11 +145,9 @@ namespace AdvancedPathfinder
         [HarmonyPatch(typeof(VehicleWindow), "Initialize")]
         private static void VehicleWindow_Initialize_pof(Vehicle vehicle)
         {
-            if (!ModSettings<Settings>.Current.HighlightTrainPaths)
-                return;
             if (vehicle is Train train)
             {
-                LazyManager<TrainPathHighlighter>.Current.ShowFor(train);
+                SimpleLazyManager<TrainPathHighlighter>.Current.ShowFor(train);
             }
         }
 
@@ -149,7 +157,7 @@ namespace AdvancedPathfinder
         {
             if (__instance.Vehicle is Train train)
             {
-                LazyManager<TrainPathHighlighter>.Current.HideFor(train);
+                SimpleLazyManager<TrainPathHighlighter>.Current.HideFor(train);
             }
         }
     }
