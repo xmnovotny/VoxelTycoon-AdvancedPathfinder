@@ -10,15 +10,16 @@ This mod replaces block signaling system by the path based signaling and provide
 
 [b]Planned features[/b]
 [list]
-[*] Differentiate semaphore and light signals by slightly different behaviour -
+[*] Differentiate semaphore and light signals by a slightly different behaviour:
 [list] 
-[*] A semaphore will clear the reserved path after a rear of the train passes the last switch in the block and there will be a small delay before a new path can be reserved
+[*] A semaphore will clear the reserved path after a rear of the train passes the last switch in the block plus there will be a small delay before a new path can be reserved
 [*] A light signal will clear each path segment individually and there will be no delay
 [/list]        
 [*] Allow creating a multi-aspect signals based on the path reserved from the signal (straight or with a reduced speed)
 [*] Real distant signal which will have a signal aspect based also on the next signal (for example green-yellow-red following signals) 
 [*] Adding an ability to safely disable path signalling to ensure that the mod can be safely removed from the game.
-[*] Warning when a train automatically turns back on switches (=usually when is longer than a station track), so there is a risk of collisions 
+[*] Warning when a train automatically turns back on switches (=usually when is longer than a station track), so there is a risk of collisions
+[*] Optionally, path signalling only available after research. 
 [/list]
 
 [b]!! Warning !![/b]
@@ -32,7 +33,7 @@ Adding a mod to the existing save is safe, but removing should be done with care
 [h2]Improved train pathfinder[/h2]
 Pathfinder is based on Dijkstra algorithm for finding the best path. Now without any optimisation it has approximately same performance as the original pathfinder 
 (original pathfinder is better on simpler rail network and shorter distances in the train schedule), but lot of improvement can be done.
-In the beta, there is a slight lag when changes in the railway network are made (if changes are made in a paused game, the lag will appear after unpausing the game).   
+In this version, there is a slight lag when changes in the railway network are made (if changes are made in a paused game, the lag will appear after unpausing the game).   
 
 [b]Features[/b]
 [list]
@@ -54,9 +55,8 @@ In the beta, there is a slight lag when changes in the railway network are made 
 [*] Train priority settings - a train with a higher priority will reserve a path further ahead than a train with a lower priority.   
 [/list]
 
-[h2]Beta[/h2]
-This version should be fully working without issues, but some bugs can appear. Backups of the game saves are strongly recommended.  
-Please report issues via an [url=https://github.com/xmnovotny/VoxelTycoon-AdvancedPathfinder/issues]Issue tracker[/url] 
+There should not be major issues, but, of course, some bugs can appear. Backups of the game saves are recommended.  
+Please report issues via an [url=https://github.com/xmnovotny/VoxelTycoon-AdvancedPathfinder/issues]Issue tracker[/url]. 
 
 [h2]Settings[/h2]
 Highlighting paths can be turned on by Game Settings -> Mods and clicking on the "cogwheel" right from the mod name. 
@@ -65,47 +65,16 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
-[b]Version 0.99 beta[/b]
+[b]Version 1.0[/b]
 [list]
 [*] Allow signals in the middle of one signalling block (in vanilla game this signals are not be passable by the train)
+[*] Added ability to display all train paths.
+[*] Rewrote code for displaying reserved paths. Now it has a very little performance impact.  
 [*] Fixed timing of a path updating after loading a game.
 [*] Fixed detecting of simple blocks when there was only crossings and no switches.
+[*] Fixed not reserving tracks beyond a path  that ends at the station and after platform there are no signals.
 [/list]
 [b]Version 0.98 beta[/b]
 [list]
 [*] Process all tracks for pathfinder (fixes some bugs).
-[/list]
-[b]Version 0.97 beta[/b]
-[list]
-[*] Fixed bugs related to rebuilding rails within a reserved path.
-[*] Pathfinder and path signal speed optimisations. 
-[/list]
-[b]Version 0.96 beta[/b]
-[list]
-[*] Fix for a low FPS situation when a train temporarily enters a block with a signal at danger.
-[/list]
-[b]Version 0.95 beta[/b]
-[list]
-[*] Fixed freezing and bugs when there was a track circle without signals
-[*] Fixed bugs when a train has no schedule orders
-[*] Fixed updating track in front of the train when several chain signals are in the reserved path
-[*] After loading and changing a signal block it will now reserve and block only rails in the train path instead of all rails in the block
-[/list]
-[b]Version 0.94 beta[/b]
-[list]
-[*] Fixed null reference bug after loading save file when some track has no signal block
-[*] Train path is updated only when it makes sense - obly before reaching signal before point from which path can be altered.
-[/list]
-[b]Version 0.93 beta[/b]
-[list]
-[*] Individual calculations of occupied track sections for pathfinder instead of whole signal block
-[/list]
-[b]Version 0.92 beta[/b]
-[list]
-[*] Fixed "No data for signal" bug while replacing a signal with train heading towards it.
-[/list]
-[b]Version 0.91 beta[/b]
-[list]
-[*] Fixed bug after placing and removing railway station.
-[*] Fixed possible collision when depot is directly connected to the block with switches
 [/list]
