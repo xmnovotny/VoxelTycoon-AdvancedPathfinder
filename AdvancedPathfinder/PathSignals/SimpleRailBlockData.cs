@@ -12,9 +12,10 @@ namespace AdvancedPathfinder.PathSignals
             get => _reservedForTrain;
             private set
             {
-                if (_reservedForTrain != value)
+                if (!ReferenceEquals(_reservedForTrain, value))
                 {
                     _reservedForTrain = value;
+                    GetHighlighter()?.FullBlockChange(this);
                     OnBlockFreeConditionChanged(ReferenceEquals(_reservedForTrain, null));
                 }
             }

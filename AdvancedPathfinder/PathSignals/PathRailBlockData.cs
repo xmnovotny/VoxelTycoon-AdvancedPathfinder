@@ -89,9 +89,11 @@ namespace AdvancedPathfinder.PathSignals
         {
             if (!_reservedBeyondPath.TryGetValue(train, out PooledHashSet<Rail> rails))
                 return;
-            
+
+            PathSignalHighlighter highMan = GetHighlighter();
             foreach (Rail rail in rails)
             {
+                highMan?.HighlightChange(rail, PathSignalHighlighter.HighlighterType.BeyondPath, -1);
                 ReleaseRailSegmentInternal(rail, releasedRailsSum);
             }
 
@@ -189,6 +191,7 @@ namespace AdvancedPathfinder.PathSignals
 
             using PooledDictionary<Rail, int> releasedRailsSum = PooledDictionary<Rail, int>.Take();
             using PooledDictionary<Rail, int> blockedRailsSum = PooledDictionary<Rail, int>.Take();
+            PathSignalHighlighter highMan = GetHighlighter();
             
             if (idx<path.FrontIndex && !ReferenceEquals(connection, null))
                 ReleaseBeyondPath(train, releasedRailsSum); //we have reached a next signal, so we can dispose beyond path
@@ -200,12 +203,14 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     reservedPath.Add(rail);
                     _blockedRails.AddIntToDict(rail, 1);
+                    highMan?.HighlightChange(rail, PathSignalHighlighter.HighlighterType.BlockedRail, 1);
                     if (!releasedRailsSum.TrySubIntFromDict(rail, 1, 0, true))
                         blockedRailsSum.AddIntToDict(rail, 1);
                     for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
                     {
                         Rail linkedRail = rail.GetLinkedRail(i);
                         _blockedLinkedRails.AddIntToDict(linkedRail, 1);
+                        highMan?.HighlightChange(rail, PathSignalHighlighter.HighlighterType.BlockedLinkedRail, 1);
                         if (!releasedRailsSum.TrySubIntFromDict(linkedRail, 1, 0, true))
                             blockedRailsSum.AddIntToDict(linkedRail, 1);
                     }
@@ -224,10 +229,13 @@ namespace AdvancedPathfinder.PathSignals
                         if (!railToBlock.IsLinkedRail)
                         {
                             _blockedRails.AddIntToDict(railToBlock.Rail, 1);
+                            highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BlockedRail, 1);
+                            highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BeyondPath, 1);
                             reservedBeyondPath.Add(railToBlock.Rail);
                         }
                         else
                         {
+                            highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BlockedLinkedRail, 1);
                             _blockedLinkedRails.AddIntToDict(railToBlock.Rail, 1);
                         }
                         if (!releasedRailsSum.TrySubIntFromDict(railToBlock.Rail, 1, 0, true))
@@ -257,12 +265,15 @@ namespace AdvancedPathfinder.PathSignals
 
         private void ReleaseRailSegmentInternal(Rail rail, Dictionary<Rail, int> releasedRailsSum)
         {
+            PathSignalHighlighter highMan = GetHighlighter();
+            highMan?.HighlightChange(rail,  PathSignalHighlighter.HighlighterType.BlockedRail, -1);
             _blockedRails.SubIntFromDict(rail, 1, 0);
             releasedRailsSum.AddIntToDict(rail, 1);
             for (int i = rail.LinkedRailCount - 1; i >= 0; i--)
             {
                 Rail linkedRail = rail.GetLinkedRail(i);
                 _blockedLinkedRails.SubIntFromDict(linkedRail, 1, 0);
+                highMan?.HighlightChange(linkedRail,  PathSignalHighlighter.HighlighterType.BlockedLinkedRail, -1);
                 releasedRailsSum.AddIntToDict(linkedRail, 1);
             }
         }
@@ -324,6 +335,7 @@ namespace AdvancedPathfinder.PathSignals
             using PooledDictionary<Rail, int> railsSum = PooledDictionary<Rail, int>.Take();
             PooledHashSet<Rail> beyondRails = null;
             PooledHashSet<Rail> trainRails = GetOrTakeTrainReservedPath(train);
+            PathSignalHighlighter highMan = GetHighlighter();
 
             try
             {
@@ -350,12 +362,22 @@ namespace AdvancedPathfinder.PathSignals
                         }
 
                         if (!railToBlock.IsLinkedRail)
+                        {
+                            highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BeyondPath, 1);
                             beyondRails.Add(railToBlock.Rail);
+                        }
                     }
+
                     if (!railToBlock.IsLinkedRail)
+                    {
                         _blockedRails.AddIntToDict(railToBlock.Rail, 1);
+                    }
                     else
+                    {
                         _blockedLinkedRails.AddIntToDict(railToBlock.Rail, 1);
+                    }
+                    highMan?.HighlightChange(railToBlock.Rail, railToBlock.IsLinkedRail ? PathSignalHighlighter.HighlighterType.BlockedLinkedRail : PathSignalHighlighter.HighlighterType.BlockedRail, 1);
+
                 }
 
                 if (beyondRails != null)
@@ -374,6 +396,7 @@ namespace AdvancedPathfinder.PathSignals
                 if (trainRails != null && !_reservedTrainPath.ContainsKey(train))
                     trainRails.Dispose();
                 beyondRails?.Dispose();
+                highMan?.Redraw();
             }))
             {}
         }

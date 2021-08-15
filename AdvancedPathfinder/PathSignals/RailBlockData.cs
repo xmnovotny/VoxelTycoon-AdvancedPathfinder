@@ -25,6 +25,7 @@ namespace AdvancedPathfinder.PathSignals
                 {
                     _isFullBlocked = value;
                     OnBlockFreeConditionChanged(_isFullBlocked == false);
+                    GetHighlighter()?.FullBlockChange(this);
                 }
             }
         } //no individual path reservation allowed, clears when whole block becomes free of vehicles
@@ -129,5 +130,12 @@ namespace AdvancedPathfinder.PathSignals
         }
 
         internal abstract void ReleaseRailSegment(Train train, Rail rail);
+
+        [CanBeNull]
+        private protected PathSignalHighlighter GetHighlighter()
+        {
+            PathSignalHighlighter highMan = SimpleLazyManager<PathSignalHighlighter>.Current;
+            return highMan.HighlightPaths ? highMan : null;
+        }
     }
 }

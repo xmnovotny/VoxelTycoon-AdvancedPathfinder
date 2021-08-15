@@ -156,7 +156,7 @@ namespace AdvancedPathfinder
             return _railBlockConnectionsGetter(block);
             
         }
-        
+
         private void OnBlockStateChange(RailBlock block, bool oldValue, bool newValue)
         {
             if (_blockStateChangeAction.TryGetValue(block, out PropertyChangedEventHandler<RailBlock, bool> action))

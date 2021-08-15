@@ -30,10 +30,13 @@ namespace AdvancedPathfinder.PathSignals
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)
         private readonly Dictionary<Train, RailSignal> _passedSignals = new(); //for delay of passing signal 
         private readonly HashSet<Train> _updateTrainPath = new(); //trains which have to update path on LateUpdate
+        private readonly HashSet<Train> _updateTrainBoundsHighlight = new(); //trains which have to update bounds highlighting on LateUpdate
         private bool _highlightDirty = true;
         private readonly PathCollection _detachingPathCache = new();
         internal readonly Dictionary<RailSignal, Train> OpenedSignals = new();
         private static bool _wasInvalidPath;
+
+        internal IReadOnlyDictionary<RailBlock, RailBlockData> RailBlocks => _railBlocks;
         
         private readonly Dictionary<Train, (int reservedIdx, int? nextDestinationIdx)>
             _reservedPathIndex =
@@ -97,6 +100,8 @@ namespace AdvancedPathfinder.PathSignals
             SimpleLazyManager<TrainHelper>.Current.RegisterTrainAttachedAction(TrainAttached);
             SimpleLazyManager<TrainHelper>.Current.RegisterTrainDetachedAction(TrainDetached);
             ReserveTrainsPathsAfterStart();
+            OnSettingsChanged();
+            _highlightDirty = true;
 //            FileLog.Log(string.Format("Path signals initialized in {0:N3}ms, found signals: {1:N0}, found blocks: {2:N0}", sw.ElapsedTicks / 10000f, _pathSignals.Count, _railBlocks.Count));
         }
 
@@ -160,9 +165,6 @@ namespace AdvancedPathfinder.PathSignals
                 int nextDestIdx = reader.ReadInt();
                 _reservedPathIndex.Add(train, (reservedIdx, nextDestIdx != int.MinValue ? nextDestIdx : null));
             }
-
-            _lastHighlightUpdate = 0;
-            HighlightReservedPaths();
         }
 
         private void WriteReservedPathIndexes(StateBinaryWriter writer)
@@ -183,6 +185,7 @@ namespace AdvancedPathfinder.PathSignals
             {
                 reserved.reservedIdx = reservedIndex;
                 _reservedPathIndex[train] = reserved;
+                _updateTrainBoundsHighlight.Add(train);
             }
         }
 
@@ -244,17 +247,13 @@ namespace AdvancedPathfinder.PathSignals
                 ReserveTrainPath((Train) trains[i]);
             }
 
-            _lastHighlightUpdate = 0;
-            HighlightReservedPaths();
+            _highlightDirty = true;
         }
 
         private void OnSettingsChanged()
         {
-            if (!ModSettings<Settings>.Current.HighlightReservedPaths)
-            {
-                HideHighlighters();
-            } else 
-                _highlightDirty = true;
+            SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPaths = ModSettings<Settings>.Current.HighlightReservedPaths;
+            SimpleLazyManager<PathSignalHighlighter>.Current.HighlightReservedBounds = ModSettings<Settings>.Current.HighlightReservedPathsExtended;
         }
 
         private void OnLateUpdate()
@@ -266,7 +265,39 @@ namespace AdvancedPathfinder.PathSignals
             }
             _updateTrainPath.Clear();
             if (_highlightDirty)
-                HighlightReservedPaths();
+            {
+                OnSettingsChanged();
+                SimpleLazyManager<PathSignalHighlighter>.Current.Redraw();
+                _highlightDirty = false;
+            }
+            else if (ModSettings<Settings>.Current.HighlightReservedPathsExtended) {
+                    
+                foreach (Train train in _updateTrainBoundsHighlight)
+                {
+                    UpdateTrainBoundsHighlight(train);
+                }
+            }
+            _updateTrainBoundsHighlight.Clear();
+        }
+
+        private void UpdateTrainBoundsHighlight(Train train)
+        {
+            PathSignalHighlighter highMan = SimpleLazyManager<PathSignalHighlighter>.Current;
+            (int reservedIdx, int? nextDestinationIdx) = _reservedPathIndex.GetValueOrDefault(train);
+            if (reservedIdx == int.MinValue && nextDestinationIdx == null)
+            {
+                highMan.HighlightReservedBoundsForTrain(train, null, null);
+                return;
+            }
+
+            PathCollection path = SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train);
+            Rail newReserved = null;
+            Rail newNonstop = null;
+            if (reservedIdx > 0 && path.ContainsIndex(reservedIdx))
+                newReserved = (Rail) path[reservedIdx].Track;
+            if (nextDestinationIdx.HasValue && path.ContainsIndex(nextDestinationIdx.Value))
+                newNonstop = (Rail) path[nextDestinationIdx.Value].Track;
+            highMan.HighlightReservedBoundsForTrain(train, newReserved, newNonstop);
         }
 
         private void TrainPassedSignal(Train train, RailSignal signal)
@@ -487,10 +518,11 @@ namespace AdvancedPathfinder.PathSignals
                 pathIds.reservedIdx = reservedPathIndex;
 //                FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}, reservedPathIndex: {pathIds.reservedIdx}");
                 _reservedPathIndex[train] = pathIds;
+                _updateTrainBoundsHighlight.Add(train);
             }
 
             Manager<RailPathfinderManager>.Current!.Stats?.StopSignalOpenForTrain();
-            HighlightReservedPaths();
+//            HighlightReservedPaths();
             return result;
         }
 
@@ -588,7 +620,6 @@ namespace AdvancedPathfinder.PathSignals
                 if (currConnection == null || !currConnection.Track.IsBuilt)
                 {
                     //invalid (=removed rail segment)
-//                    invalidIndex ??= index;
                     continue;
                 }
 
@@ -619,7 +650,8 @@ namespace AdvancedPathfinder.PathSignals
             }
 
             if (changed)
-                HighlightReservedPaths();
+                _updateTrainBoundsHighlight.Add(train);
+
         }
 
         private void VerifyPath(PathCollection path)
@@ -659,7 +691,7 @@ namespace AdvancedPathfinder.PathSignals
                 }
             }
             SimpleLazyManager<TrainHelper>.Current.SetTrainUpdatePathTime(train, LazyManager<TimeManager>.Current.UnscaledUnpausedSessionTime + 10000f);
-            HighlightReservedPaths();
+            _updateTrainBoundsHighlight.Add(train);
         }
 
         private void TryReleaseFullBlock()
@@ -684,6 +716,7 @@ namespace AdvancedPathfinder.PathSignals
         {
             _passedSignals.Remove(train);
             _reservedPathIndex.Remove(train);
+            _updateTrainBoundsHighlight.Add(train);
         }
 
         private void TrainDetached(Train train)
@@ -696,7 +729,6 @@ namespace AdvancedPathfinder.PathSignals
             }
             DeleteTrainData(train);
             TryReleaseFullBlock();
-            HighlightReservedPaths();
         }
 
         private void TrainDetaching(Train train, PathCollection path)
@@ -728,7 +760,8 @@ namespace AdvancedPathfinder.PathSignals
                     _passedSignals.Remove(train);
                 }
             }
-            HighlightReservedPaths();
+
+            _highlightDirty = true;
         }
         
         private void ReserveTrainPathsInNewBlock(RailBlock block, RailBlockData blockData)
@@ -786,7 +819,6 @@ namespace AdvancedPathfinder.PathSignals
             
             CreatePathSignalData(newBlockData);
             ReserveTrainPathsInNewBlock(block, newBlockData);
-            HighlightReservedPaths();
         }
 
         private void AfterUpdateDestinationAndPath(PathCollection path, Train train)
@@ -805,14 +837,13 @@ namespace AdvancedPathfinder.PathSignals
                         reserved.reservedIdx = reservedIndex.Value;
                     _reservedPathIndex[train] = reserved;
                 }
+                _updateTrainBoundsHighlight.Add(train);
             }
         }
 
         #region DEBUG
 
         private readonly HashSet<Highlighter> _highlighters = new();
-
-        private float _lastHighlightUpdate = 0;
 
         private void HideHighlighters()
         {
@@ -827,7 +858,7 @@ namespace AdvancedPathfinder.PathSignals
             _highlighters.Clear();
         }
 
-        private void HighlightRail(Rail rail, Color color, float halfWidth = 0.5f)
+        public void HighlightRail(Rail rail, Color color, float halfWidth = 0.5f)
         {
             if (!rail.IsBuilt)
                 return;
@@ -835,88 +866,30 @@ namespace AdvancedPathfinder.PathSignals
             _highlighters.Add(man.ForOneTrack(rail, color, halfWidth));
         }
 
-        private void HighlightReservedBounds()
+        internal IEnumerable<(Train train, Rail reserved, Rail nonstop)> GetReservedBoundsForHighlight()
         {
             foreach (KeyValuePair<PathCollection, Train> pair in SimpleLazyManager<TrainHelper>.Current.PathToTrain)
             {
                 if (_reservedPathIndex.TryGetValue(pair.Value, out (int reservedIdx, int? nextDestinationIdx) reservedIndex))
                 {
+                    Rail reserved = null;
+                    Rail nonstop = null;
                     if (reservedIndex.reservedIdx > 0 && pair.Key.ContainsIndex(reservedIndex.reservedIdx))
                     {
-                        TrackConnection conn = pair.Key[reservedIndex.reservedIdx];
-                        HighlightRail((Rail) conn.Track, Color.black, 0.6f);
+                        reserved = (Rail) pair.Key[reservedIndex.reservedIdx].Track;
                     }
 
                     if (reservedIndex.nextDestinationIdx != null && pair.Key.ContainsIndex(reservedIndex.nextDestinationIdx.Value))
                     {
-                        TrackConnection conn = pair.Key[reservedIndex.nextDestinationIdx.Value];
-                        HighlightRail((Rail) conn.Track, Color.blue, 0.7f);
+                        nonstop = (Rail) pair.Key[reservedIndex.nextDestinationIdx.Value].Track;
                     }
+
+                    if (!ReferenceEquals(reserved, null) || !ReferenceEquals(nonstop, null))
+                        yield return (pair.Value, reserved, nonstop);
                 }
             }
         }
 
-        private void HighlightReservedPaths()
-        {
-            if (!ModSettings<Settings>.Current.HighlightReservedPaths)
-                return;
-            if (_lastHighlightUpdate + 1f >= Time.time)
-            {
-                _highlightDirty = true;
-                return;
-            }
-
-            _highlightDirty = false;
-            _lastHighlightUpdate = Time.time;
-            HideHighlighters();
-            Color color = Color.green;
-            Color linkedColor = Color.red;
-            Color simpleBlockColor = Color.green;
-            simpleBlockColor.g = 230;
-            foreach (RailBlockData blockData in _railBlocks.Values)
-            {
-                switch (blockData)
-                {
-                    case PathRailBlockData pathRailBlockData:
-                    {
-                        foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedRails)
-                        {
-                            if (railPair.Value > 0)
-                                HighlightRail(railPair.Key, color.WithAlpha(0.2f + railPair.Value * 0.2f), 0.42f);
-                        }
-
-                        foreach (KeyValuePair<Rail, int> railPair in pathRailBlockData.BlockedLinkedRails)
-                        {
-                            if (railPair.Value > 0)
-                                HighlightRail(railPair.Key, linkedColor.WithAlpha(0.1f + railPair.Value * 0.1f), 0.2f);
-                        }
-
-                        foreach (KeyValuePair<Train, PooledHashSet<Rail>> railPair in pathRailBlockData.ReservedBeyondPath)
-                        {
-                            foreach (Rail rail in railPair.Value)
-                            {
-                                HighlightRail(rail, Color.blue.WithAlpha(0.9f), 0.44f);
-                            }
-                        }
-
-                        break;
-                    }
-                }
-
-                if (blockData is SimpleRailBlockData simpleRailBlockData && simpleRailBlockData.ReservedForTrain != null || blockData.IsFullBlocked)
-                {
-                    RailBlock block = blockData.Block;
-                    UniqueList<RailConnection> connections = Traverse.Create(block).Field<UniqueList<RailConnection>>("Connections").Value;
-                    for (int i = connections.Count - 1; i >= 0; i--)
-                    {
-                        HighlightRail(connections[i].Track, simpleBlockColor.WithAlpha(0.3f), 0.43f);
-                    }
-                }
-            }
-
-            if (ModSettings<Settings>.Current.HighlightReservedPathsExtended)
-                HighlightReservedBounds();
-        }
 
         #endregion
 
@@ -1106,6 +1079,7 @@ namespace AdvancedPathfinder.PathSignals
                 idx.nextDestinationIdx = _nextDestinationResultIdx + __instance.FrontIndex - 1;
 //                FileLog.Log($"New NextDestinationIdx {idx.nextDestinationIdx}");
                 Current._reservedPathIndex[train] = idx;
+                Current._updateTrainBoundsHighlight.Add(train);
             }
 
             return true;

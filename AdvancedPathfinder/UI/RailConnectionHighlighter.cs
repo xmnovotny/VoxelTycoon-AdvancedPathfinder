@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Rendering;
 using VoxelTycoon;
@@ -19,7 +21,7 @@ namespace AdvancedPathfinder.UI
         private readonly Dictionary<Rail, List<Highlighter>> _cacheFull = new();  //cache for full width highlighters
         private readonly Dictionary<RailConnection, List<Highlighter>> _cacheHalf = new();  //cache for half width highlighters
 
-        public Highlighter ForOneTrack(Rail track, Color color, float halfWidth = 0.4f, string name = "TrackHighlight")
+        public Highlighter ForOneTrack([NotNull] Rail track, Color color, float halfWidth = 0.4f, string name = "TrackHighlight")
         {
             Highlighter result = GetOrCreateFullHighlighterObject(track);
             result.name = name;
@@ -37,6 +39,17 @@ namespace AdvancedPathfinder.UI
             result.AttachedObject = connection;
             result.gameObject.SetActive(true);
             return result;
+        }
+
+        public void UpdateColorAndWidth(Highlighter highlighter, Color color, float halfWidth = 0.4f)
+        {
+            highlighter.MeshRenderer.sharedMaterial = GetMaterial(color, halfWidth);
+        }
+
+        public void SafeHide(Highlighter highlighter)
+        {
+            if (highlighter != null && highlighter.isActiveAndEnabled)
+                highlighter.gameObject.SetActive(false);
         }
 
         protected override void OnDeinitialize()

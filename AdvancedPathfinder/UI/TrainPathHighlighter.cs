@@ -185,11 +185,11 @@ namespace AdvancedPathfinder.UI
             return minColor;
         }
         
-        private class TrainData/*: IDisposable*/
+        private class TrainData
         {
             private readonly Dictionary<RailConnection, Highlighter> _usedHighlighters = new();
-            private readonly HashSet<RailConnection> _tmpToAddHashSet = new();
-            private readonly HashSet<RailConnection> _tmpToRemoveHashSet = new();
+            private static readonly HashSet<RailConnection> TmpToAddHashSet = new();
+            private static readonly HashSet<RailConnection> TmpToRemoveHashSet = new();
 
             private readonly Train _train;
             private readonly PathCollection _path;
@@ -201,9 +201,9 @@ namespace AdvancedPathfinder.UI
 
             public TrainData(Train train, [NotNull] PathCollection path, Color color)
             {
-                this._train = train;
-                this._path = path;
-                this._color = color;
+                _train = train;
+                _path = path;
+                _color = color;
             }
 
             public void ReleaseHighlighters()
@@ -221,29 +221,29 @@ namespace AdvancedPathfinder.UI
             {
                 if (!force && Time.time - _lastUpdated < 1f)
                     return;
-                Stopwatch sw = Stopwatch.StartNew();
-                _tmpToAddHashSet.Clear();
-                _tmpToRemoveHashSet.Clear();
+//                Stopwatch sw = Stopwatch.StartNew();
+                TmpToAddHashSet.Clear();
+                TmpToRemoveHashSet.Clear();
 
                 RailConnectionHighlighter hlMan = LazyManager<RailConnectionHighlighter>.Current;
                 int frontIndex = _path.FrontIndex;
-                _tmpToRemoveHashSet.UnionWith(_usedHighlighters.Keys);
+                TmpToRemoveHashSet.UnionWith(_usedHighlighters.Keys);
                 for (int i = _path.RearIndex; i < frontIndex; i++)
                 {
                     if (_path[i] is RailConnection conn)
                     {
                         if (!_usedHighlighters.ContainsKey(conn))
                         {
-                            _tmpToAddHashSet.Add(conn);
+                            TmpToAddHashSet.Add(conn);
                         }
                         else
                         {
-                            _tmpToRemoveHashSet.Remove(conn);
+                            TmpToRemoveHashSet.Remove(conn);
                         }
                     }
                 }
 
-                foreach (RailConnection connection in _tmpToRemoveHashSet)
+                foreach (RailConnection connection in TmpToRemoveHashSet)
                 {   
                     if (!connection.Track.IsBuilt)
                         continue;
@@ -251,7 +251,7 @@ namespace AdvancedPathfinder.UI
                     _usedHighlighters.Remove(connection);
                 }
                 
-                foreach (RailConnection conn in _tmpToAddHashSet)
+                foreach (RailConnection conn in TmpToAddHashSet)
                 {
                     if (!conn.Track.IsBuilt)
                         continue;
