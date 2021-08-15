@@ -210,7 +210,7 @@ namespace AdvancedPathfinder.PathSignals
                     {
                         Rail linkedRail = rail.GetLinkedRail(i);
                         _blockedLinkedRails.AddIntToDict(linkedRail, 1);
-                        highMan?.HighlightChange(rail, PathSignalHighlighter.HighlighterType.BlockedLinkedRail, 1);
+                        highMan?.HighlightChange(linkedRail, PathSignalHighlighter.HighlighterType.BlockedLinkedRail, 1);
                         if (!releasedRailsSum.TrySubIntFromDict(linkedRail, 1, 0, true))
                             blockedRailsSum.AddIntToDict(linkedRail, 1);
                     }
@@ -465,7 +465,7 @@ namespace AdvancedPathfinder.PathSignals
                         outerConnection.InnerConnection.Signal.IsBuilt)
                         continue;
                     Rail rail = outerConnection.Track;
-                    if (!processed.Add(connection)) //connection was already processed (=circular track)
+                    if (!processed.Add(outerConnection)) //connection was already processed (=circular track)
                         continue;
                     yield return new RailToBlock(rail, false, true);
                     connections.Add(outerConnection);
