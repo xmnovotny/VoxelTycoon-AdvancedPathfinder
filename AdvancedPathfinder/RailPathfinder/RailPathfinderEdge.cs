@@ -4,7 +4,7 @@ using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder.Rails
+namespace AdvancedPathfinder.RailPathfinder
 {
     public class RailPathfinderEdge: PathfinderEdgeBase
     {
@@ -55,7 +55,7 @@ namespace AdvancedPathfinder.Rails
             return baseScore;
         }
 
-        internal bool Fill(RailConnection startConnection, ISectionFinder sectionFinder, INodeFinder nodeFinder)
+        internal bool Fill(RailConnection startConnection, IRailSectionFinder railSectionFinder, IRailNodeFinder railNodeFinder)
         {
             RailConnection  currentConnection = startConnection;
             NextNode = null;
@@ -64,7 +64,7 @@ namespace AdvancedPathfinder.Rails
             using PooledHashSet<RailSection> processedSections = PooledHashSet<RailSection>.Take();
             while (currentConnection != null)
             {
-                RailSection section = sectionFinder.FindSection(currentConnection);
+                RailSection section = railSectionFinder.FindSection(currentConnection);
                 if (!processedSections.Add(section))
                 {
                     //we already processed this section = circular (invalid) edge
@@ -79,7 +79,7 @@ namespace AdvancedPathfinder.Rails
                     lastSection.SetNextSection(section, direction, lastDirection);
                 }
                 RailConnection lastConn = section.GetEndConnection(direction);
-                if ((NextNode = nodeFinder.FindNodeByInboundConn(lastConn)) != null)
+                if ((NextNode = railNodeFinder.FindNodeByInboundConn(lastConn)) != null)
                 {
                     SetNextNodeInSections();
 

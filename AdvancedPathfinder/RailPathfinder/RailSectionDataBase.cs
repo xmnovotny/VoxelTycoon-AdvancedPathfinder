@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace AdvancedPathfinder.Rails
+﻿namespace AdvancedPathfinder.RailPathfinder
 {
     public class RailSectionDataBase
     {

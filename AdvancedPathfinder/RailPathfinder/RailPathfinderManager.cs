@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using AdvancedPathfinder.Helpers;
 using AdvancedPathfinder.UI;
-using Delegates;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -12,12 +12,12 @@ using VoxelTycoon;
 using VoxelTycoon.Buildings;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
-using VoxelTycoon.Tracks.Tasks;
 using XMNUtils;
+using TrackHelper = AdvancedPathfinder.Helpers.TrackHelper;
 
-namespace AdvancedPathfinder.Rails
+namespace AdvancedPathfinder.RailPathfinder
 {
-    public class RailPathfinderManager: Manager<RailPathfinderManager>, ISectionFinder, INodeFinder
+    public class RailPathfinderManager: Manager<RailPathfinderManager>, IRailSectionFinder, IRailNodeFinder
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train

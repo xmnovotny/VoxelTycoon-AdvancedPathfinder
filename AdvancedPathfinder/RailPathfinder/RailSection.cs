@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using HarmonyLib;
+using AdvancedPathfinder.Helpers;
 using VoxelTycoon;
-using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
 
-namespace AdvancedPathfinder.Rails
+namespace AdvancedPathfinder.RailPathfinder
 {
     public class RailSection: TrackSection<Rail, RailConnection>
     {

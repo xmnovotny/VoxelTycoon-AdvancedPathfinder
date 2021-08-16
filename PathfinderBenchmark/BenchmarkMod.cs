@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
-using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.RailPathfinder;
 using HarmonyLib;
 using ModSettingsUtils;
 using UnityEngine;

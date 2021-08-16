@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using AdvancedPathfinder.Helpers;
 using HarmonyLib;
 using JetBrains.Annotations;
 using UnityEngine;

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.Helpers;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
 using ModSettingsUtils;

@@ -1,8 +1,7 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder.Rails
+namespace AdvancedPathfinder.RailPathfinder
 {
     public record RailEdgeSettings
     {

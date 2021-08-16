@@ -5,7 +5,7 @@ using VoxelTycoon;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder.Rails
+namespace AdvancedPathfinder.RailPathfinder
 {
     public class RailPathfinderNode: PathfinderNodeBase
     {
@@ -123,12 +123,12 @@ namespace AdvancedPathfinder.Rails
             }
         }
         
-        internal void FindEdges(ISectionFinder sectionFinder, INodeFinder nodeFinder)
+        internal void FindEdges(IRailSectionFinder railSectionFinder, IRailNodeFinder railNodeFinder)
         {
             foreach (RailConnection connection in _outboundConnections)
             {
                 RailPathfinderEdge edge = new() {Owner = this};
-                if (!edge.Fill(connection, sectionFinder, nodeFinder))
+                if (!edge.Fill(connection, railSectionFinder, railNodeFinder))
                     continue;
                 _edges.Add(edge);
                 ProcessNewEdge(edge);
