@@ -1,11 +1,11 @@
 ﻿using VoxelTycoon.Tracks;
+using VoxelTycoon.Tracks.Rails;
 
 namespace AdvancedPathfinder
 {
-    internal interface INodeFinder<in TTrackConnection>
-        where TTrackConnection : TrackConnection
+    internal interface INodeFinder
     {
-        public PathfinderNodeBase FindNodeByInboundConn(TTrackConnection connection);
+        public PathfinderNodeBase FindNodeByInboundConn(RailConnection connection);
 
     }
 }

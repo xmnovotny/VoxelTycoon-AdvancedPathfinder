@@ -1,12 +1,11 @@
-﻿using VoxelTycoon.Tracks;
+﻿using AdvancedPathfinder.Rails;
+using VoxelTycoon.Tracks;
+using VoxelTycoon.Tracks.Rails;
 
 namespace AdvancedPathfinder
 {
-    public interface ISectionFinder<TTrack, in TTrackConnection, out TTrackSection>
-        where TTrack : Track
-        where TTrackConnection : TrackConnection
-        where TTrackSection : TrackSection<TTrack, TTrackConnection>
+    public interface ISectionFinder
     {
-        public TTrackSection FindSection(TTrackConnection connection);
+        public RailSection FindSection(RailConnection connection);
     }
 }

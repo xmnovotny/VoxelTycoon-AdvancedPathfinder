@@ -17,7 +17,7 @@ using XMNUtils;
 
 namespace AdvancedPathfinder.Rails
 {
-    public class RailPathfinderManager: Manager<RailPathfinderManager>, ISectionFinder<Rail, RailConnection, RailSection>, INodeFinder<RailConnection>
+    public class RailPathfinderManager: Manager<RailPathfinderManager>, ISectionFinder, INodeFinder
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
