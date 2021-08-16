@@ -67,7 +67,7 @@ Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetai
 [h2] Latest changes [/h2]
 [b]Version 1.0[/b]
 [list]
-[*] Allow signals in the middle of one signalling block (in vanilla game this signals are not be passable by the train)
+[*] Allow signals in the middle of one signalling block (in vanilla game this signals aren't passable by the train)
 [*] Added ability to display all train paths.
 [*] Rewrote code for displaying reserved paths. Now it has a very little performance impact.  
 [*] Fixed timing of a path updating after loading a game.
