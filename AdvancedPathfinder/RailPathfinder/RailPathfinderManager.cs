@@ -17,17 +17,15 @@ using TrackHelper = AdvancedPathfinder.Helpers.TrackHelper;
 
 namespace AdvancedPathfinder.RailPathfinder
 {
-    public class RailPathfinderManager: Manager<RailPathfinderManager>, IRailSectionFinder, IRailNodeFinder
+    public class RailPathfinderManager: Manager<RailPathfinderManager>, IRailSectionFinder
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
         //TODO: calculate a closed block penalty based on a distance from the start of the path
         //TODO: add a high penalty for a occupied platform section when that section is the path target (for a better result of selecting a free platform)
         //TODO: set a different penalty for an occupied simple block and a block with switches
-        private readonly Dictionary<PathfinderNodeBase, float> _electricalNodes = new(); //nodes reachable by electric trains (value is always 1)
         private bool _closedSectionsDirty; 
         private Action<Vehicle, bool> _trainUpdatePathAction;
-        private readonly Dictionary<RailSignal, RailPathfinderNode> _edgeLastSignals = new(); //last non-chain signals on edges = good place when to update a train path
 
         private readonly Color[] Colors = 
         {
@@ -39,13 +37,7 @@ namespace AdvancedPathfinder.RailPathfinder
             Color.yellow
         };
         
-        private readonly List<RailSection> _sections = new();
-        private readonly List<RailPathfinderNode> _nodes = new();
-        private readonly Dictionary<PathfinderNodeBase, float> _reachableNodes = new(); //list of reachable nodes (value in this case is always 1)
 
-        private readonly Dictionary<Rail, RailSection> _trackToSection = new();
-        /** inbound connection to node */
-        private readonly Dictionary<RailConnection, RailPathfinderNode> _connectionToNode = new();
         [CanBeNull]
         private Pathfinder<RailPathfinderNode> _pathfinder;
         private readonly Dictionary<int, HashSet<RailPathfinderNode>> _convertedDestinationCache = new();
@@ -54,18 +46,19 @@ namespace AdvancedPathfinder.RailPathfinder
         private readonly HashSet<Highlighter> _highlighters = new();
         private bool _graphDirty;
         public float ElapsedMilliseconds { get; private set; }
+        public RailPathfinderGraph Graph { get; private set; }
 
         public PathfinderStats Stats { get; protected set; }
 
         [CanBeNull]
         public RailSection FindSection(RailConnection connection)
         {
-            return _trackToSection.GetValueOrDefault(connection.Track);
+            return Graph.FindSection(connection.Track);
         }
 
         public RailSection FindSection(Rail track)
         {
-            return _trackToSection.GetValueOrDefault(track);
+            return Graph.FindSection(track);
         }
         
         [CanBeNull]
@@ -79,11 +72,6 @@ namespace AdvancedPathfinder.RailPathfinder
         {
             RailEdgeSettings settings = new RailEdgeSettings(train);
             return FindPath(origin, target, settings, result);
-        }
-
-        public PathfinderNodeBase FindNodeByInboundConn(RailConnection connection)
-        {
-            return connection != null ? _connectionToNode.GetValueOrDefault(connection) : null;
         }
 
         public void MarkClosedSectionsDirty()
@@ -103,12 +91,12 @@ namespace AdvancedPathfinder.RailPathfinder
 
         public bool IsLastEdgeSignal(RailSignal signal)
         {
-            return _edgeLastSignals.ContainsKey(signal);
+            return Graph.EdgeLastSignals.ContainsKey(signal);
         }
 
         public bool IsLastEdgeSignalWithPathDiversion(Train train, RailSignal signal)
         {
-            if (!_edgeLastSignals.TryGetValue(signal, out RailPathfinderNode node))
+            if (!Graph.EdgeLastSignals.TryGetValue(signal, out RailPathfinderNode node))
                 return false;
             IVehicleDestination destination = SimpleLazyManager<TrainHelper>.Current.GetTrainDestination(train);
             return destination == null || node.HasPathDiversion(train, destination);
@@ -142,9 +130,9 @@ namespace AdvancedPathfinder.RailPathfinder
             {
                 if (Stats != null)
                 {
-                    Dictionary<PathfinderNodeBase, float> fullNodes = edgeSettings is RailEdgeSettings {Electric: true}
-                        ? _electricalNodes
-                        : _reachableNodes;
+                    IReadOnlyDictionary<PathfinderNodeBase, float> fullNodes = edgeSettings is RailEdgeSettings {Electric: true}
+                        ? Graph.ElectricalNodes
+                        : Graph.ReachableNodes;
                     Stats.AddFullNodesCount(fullNodes.Count);
                     Stats.AddSubNodesCount(nodes.Count);
                 }
@@ -153,7 +141,7 @@ namespace AdvancedPathfinder.RailPathfinder
             }
 
             calculateReachableNodes = true;
-            return edgeSettings is RailEdgeSettings {Electric: true} ? _electricalNodes : _reachableNodes;
+            return edgeSettings is RailEdgeSettings {Electric: true} ? Graph.ElectricalNodesRW : Graph.ReachableNodesRW;
         }
 
         private HashSet<RailPathfinderNode> ConvertDestination(IVehicleDestination destination)
@@ -161,7 +149,7 @@ namespace AdvancedPathfinder.RailPathfinder
             HashSet<RailPathfinderNode> result = new HashSet<RailPathfinderNode>();
             foreach (TrackConnection connection in destination.Stops)
             {
-                RailPathfinderNode node = (RailPathfinderNode) FindNodeByInboundConn(connection.InnerConnection as RailConnection);
+                RailPathfinderNode node = (RailPathfinderNode) Graph.FindNodeByInboundConn(connection.InnerConnection as RailConnection);
                 if (node == null)
                     throw new ArgumentException("Cannot convert target to node");
                 result.Add(node);
@@ -181,46 +169,12 @@ namespace AdvancedPathfinder.RailPathfinder
                     throw new InvalidOperationException("Cannot reconstruct founded path");
                 }
                 edges.Add(node.PreviousBestEdge);
-                node = (RailPathfinderNode) node.PreviousBestNode;
+                node = node.PreviousBestNode;
             }
 
             for (int i = edges.Count - 1; i >= 0; i--)
             {
                 edges[i].GetConnections(result);
-            }
-        }
-
-        private void ProcessNodeToSubLists(RailPathfinderNode node)
-        {
-            if (node.IsReachable)
-                _reachableNodes.Add(node, 0);
-            if (node.IsElReachable)
-                _electricalNodes.Add(node, 0);
-            if (!node.IsReachable)
-                return;
-
-            for (int i = node.Edges.Count - 1; i >= 0; i--)
-            {
-                RailPathfinderEdge edge = node.Edges[i];
-                if (!edge.IsPassable()) continue;
-
-                RailPathfinderNode nextNode = (RailPathfinderNode) edge.NextNode;
-                
-                if (nextNode is not {NumPassableOutboundEdges: > 1})
-                    continue;
-
-                RailSignal lastSignal = edge.LastSignal;
-                if (!ReferenceEquals(lastSignal, null))
-                {
-                    _edgeLastSignals[lastSignal] = nextNode;
-                }
-            }
-        }
-        private void FillNodeSubLists()
-        {
-            foreach (RailPathfinderNode node in _nodes)
-            {
-                ProcessNodeToSubLists(node);
             }
         }
 
@@ -230,7 +184,7 @@ namespace AdvancedPathfinder.RailPathfinder
             foreach (PathfinderNodeBase node in nodeList.Keys)
             {
                 RailPathfinderNode originNode = (RailPathfinderNode) node;
-                Pathfinder.FindAll(originNode, _reachableNodes, edgeSettings);
+                Pathfinder.FindAll(originNode, nodeList, edgeSettings);
                 Dictionary<PathfinderNodeBase, float> reachableNodes = new();
                 Pathfinder.GetDistances(reachableNodes);
                 originNode.SetReachableNodes(reachableNodes, edgeSettings);
@@ -239,10 +193,11 @@ namespace AdvancedPathfinder.RailPathfinder
 
         private void FindAllReachableNodes()
         {
-            FindAllReachableNodesInternal(_reachableNodes, GetEdgeSettingsForCalcReachableNodes(null));
+            FindAllReachableNodesInternal(Graph.ReachableNodesRW, GetEdgeSettingsForCalcReachableNodes(null));
             object edgeSettings = GetEdgeSettingsForCalcReachableNodes(new RailEdgeSettings() {Electric = true});
-            FindAllReachableNodesInternal(_electricalNodes, edgeSettings);
+            FindAllReachableNodesInternal(Graph.ElectricalNodesRW, edgeSettings);
         }
+
         private void FinalizeBuildGraph()
         {
             Stopwatch sw = Stopwatch.StartNew();
@@ -251,196 +206,18 @@ namespace AdvancedPathfinder.RailPathfinder
 //            FileLog.Log($"Finding all reachable nodes in {sw.ElapsedTicks / 10000f:N2}ms");
         }
 
-        private void GetNonProcessedTracks(HashSet<Rail> nonProcessedTracks)
-        {
-            ImmutableList<Rail> tracks = LazyManager<BuildingManager>.Current.GetAll<Rail>();
-            nonProcessedTracks.UnionWith(tracks.ToList());
-            nonProcessedTracks.ExceptWith(_trackToSection.Keys);
-        }
-
-        private void FindConnectionsAfterSwitch(HashSet<Rail> tracks, HashSet<RailConnection> foundConnections)
-        {
-            foreach (Rail track in tracks)
-            {
-                for (int i = track.ConnectionCount - 1; i >= 0; i--)
-                {
-                    TrackConnection conn = track.GetConnection(i);
-                    if (conn.OuterConnectionCount > 1)
-                    {
-                        foreach (TrackConnection outerConnection in conn.OuterConnections)
-                        {
-                            foundConnections.Add((RailConnection) outerConnection);
-                        }
-                    }
-                }
-            }
-        }
-
-        private void FindSections(HashSet<RailConnection> foundNodesConnections)
-        {
-            _sections.Clear();
-            _trackToSection.Clear();
-
-            using PooledHashSet<RailConnection> connectionsToProcess = PooledHashSet<RailConnection>.Take();
-            using PooledHashSet<Rail> processedTracks = PooledHashSet<Rail>.Take();
-            using PooledHashSet<Rail> nonProcessedTracks = PooledHashSet<Rail>.Take();
-            bool addedStationStops = false;
-            bool addedSwitches = false;
-
-            IReadOnlyCollection<RailConnection> stationStopsConnections = GetStationStopsConnections();
-            TrackHelper.GetStartingConnections<Rail, RailConnection>(connectionsToProcess);
-            RailSection section = null;
-            ImmutableList<Rail> tracks = LazyManager<BuildingManager>.Current.GetAll<Rail>();
-            nonProcessedTracks.UnionWith(tracks.ToList());  //mark all tracks as unprocessed
-
-            while (true)
-            {
-                if (connectionsToProcess.Count == 0)
-                {
-                    nonProcessedTracks.ExceptWith(_trackToSection.Keys); //except all processed tracks from nonprocessed tracks
-
-                    if (nonProcessedTracks.Count == 0)
-                        break;
-                    if (!addedSwitches)
-                    {
-                        //find unprocessed connections just after switches
-                        addedSwitches = true;
-                        FindConnectionsAfterSwitch(nonProcessedTracks, connectionsToProcess);
-                        continue;
-                    }
-                    if (!addedStationStops && stationStopsConnections?.Count > 0)
-                    {
-                        //try start processing from stations 
-                        addedStationStops = true;
-                        foreach (RailConnection connection in stationStopsConnections)
-                        {
-                            if (!processedTracks.Contains(connection.Track))
-                                connectionsToProcess.Add((RailConnection)connection.InnerConnection); //from the end of platform back to the start of platform
-                            foreach (TrackConnection outerConnection in connection.InnerConnection.OuterConnections)
-                            {
-                                //from the track beyond the platform away from station
-                                if (!processedTracks.Contains(outerConnection.Track))
-                                    connectionsToProcess.Add((RailConnection) outerConnection);
-                            }
-                        }
-                        continue;
-                    }
-                    //only simple circular track remained, add one of unprocessed connection to process until all tracks are processed
-                    connectionsToProcess.Add((RailConnection) nonProcessedTracks.First().GetConnection(0));
-                }
-                RailConnection currentConn = connectionsToProcess.First();
-                connectionsToProcess.Remove(currentConn);
-                if (processedTracks.Contains(currentConn.Track))
-                    continue;
-                if (section == null) //for reusing created and unfilled section from previous cycle
-                {
-                    section = new RailSection();
-                }
-                if (section.Fill(currentConn, stationStopsConnections, processedTracks, connectionsToProcess, foundNodesConnections))
-                {
-                    _sections.Add(section);
-                    ProcessFilledSection(section);
-                    section = null;
-                }
-
-            }
-            //FileLog.Log($"Found {_sections.Count} sections, iterations: {count}, average per iteration: {(count > 0 ? (ticks / count / 10000) : 0)}");
-
-//            HashSet<Rail> nonProcessedTracks = GetNonProcessedTracks();
-            
-//            FileLog.Log($"Unprocessed tracks: {nonProcessedTracks.Count}");
-            if (nonProcessedTracks.Count > 0)
-            {
-                HighlightNonProcessedTracks(nonProcessedTracks);
-            }
-        }
-
-        private void FindNodes(HashSet<RailConnection> foundNodesConnections)
-        {
-            _nodes.Clear();
-            _connectionToNode.Clear();
-            foreach (RailConnection conn in foundNodesConnections)
-            {
-                RailPathfinderNode node = null;
-                if (conn.OuterConnectionCount >= 1 && !_connectionToNode.ContainsKey(conn))
-                {
-                    node = new RailPathfinderNode();
-                    node.Initialize(conn);
-                } else if (conn.OuterConnectionCount == 0 && !_connectionToNode.ContainsKey(conn))
-                {
-                    //end of the track - create starting node with no inbound connection and ending node with no outbound connection
-                    //starting node (will not be added to connectionToNode)
-                    node = new RailPathfinderNode();
-                    node.Initialize(conn, true);
-                    _nodes.Add(node);
-                    //ending node (will be added to connectionToNode)
-                    node = new RailPathfinderNode();
-                    node.Initialize(conn);
-                }
-                if (node != null)
-                {
-                    _nodes.Add(node);
-                    foreach (RailConnection connection in node.InboundConnections)
-                    {
-                        _connectionToNode.Add(connection, node);
-                    }
-                }
-            }
-//            FileLog.Log($"Found {_nodes.Count} nodes");
-        }
-
-        private void FindEdges()
-        {
-            int sumEdges = 0;
-            foreach (RailPathfinderNode node in _nodes)
-            {
-                if (node.OutboundConnections.Count == 0)  //end node, no edges
-                    continue;
-                node.FindEdges(this, this);
-                sumEdges += node.Edges.Count;
-            }
-            
-//            FileLog.Log($"Found {sumEdges} edges");
-        }
 
         private void ClearGraph()
         {
-            _reachableNodes.Clear();
             _convertedDestinationCache.Clear();
-            _electricalNodes.Clear();
-            _edgeLastSignals.Clear();
         }
 
         private void BuildGraph()
         {
-            try
-            {
-                HideHighlighters();
-                Stopwatch sw = Stopwatch.StartNew();
-                ClearGraph();
-                HashSet<RailConnection> foundNodesConnections = new();
-                FindSections(foundNodesConnections);
-                sw.Stop();
-//                FileLog.Log("Find sections={0}".Format(sw.Elapsed));
-
-                sw.Restart();
-                FindNodes(foundNodesConnections);
-                sw.Stop();
-//                FileLog.Log("Find nodes={0}".Format(sw.Elapsed));
-//                HighlightNodes();
-
-                sw.Restart();
-                FindEdges();
-                FillNodeSubLists();
-                FinalizeBuildGraph();
-                sw.Stop();
-//                FileLog.Log("Find edges={0}".Format(sw.Elapsed));
-                //HighlightSections();
-            }
-            catch (Exception e)
-            {
-                AdvancedPathfinderMod.Logger.LogException(e);
-            }
+            HideHighlighters();
+            ClearGraph();
+            Graph.BuildGraph();
+            FinalizeBuildGraph();
         }
 
         private void MarkGraphDirty()
@@ -450,6 +227,7 @@ namespace AdvancedPathfinder.RailPathfinder
 
         protected override void OnInitialize()
         {
+            Graph = new RailPathfinderGraph();
             BuildGraph();
             LazyManager<TrackHelper>.Current.RegisterRailsChanged(OnRailsChanged);
             LazyManager<TrackHelper>.Current.RegisterSignalBuildChanged(OnSignalBuildChanged);
@@ -464,11 +242,6 @@ namespace AdvancedPathfinder.RailPathfinder
                 _closedSectionsDirty = false;
                 HighlightClosedBlockSections();
             }
-        }
-
-        private IReadOnlyCollection<RailConnection> GetStationStopsConnections()
-        {
-            return StationHelper<RailConnection, RailStation>.Current.GetStationStopsConnections();
         }
 
         private void HighlightNonProcessedTracks(HashSet<Rail> unprocessedTracks)
@@ -515,19 +288,6 @@ namespace AdvancedPathfinder.RailPathfinder
             }
 
             return true;
-        }
-
-        private void ProcessFilledSection(RailSection section)
-        {
-            ImmutableUniqueList<RailConnection> connections = section.GetConnectionList();
-            for (int i = 0; i < connections.Count; i++)
-            {
-                if (connections[i].Track == null)
-                {
-                    throw new InvalidOperationException("Connection has no track");
-                }
-                _trackToSection.Add(connections[i].Track, section);
-            }
         }
 
         private bool FindPath([NotNull] RailConnection origin, [NotNull] IVehicleDestination target,
@@ -640,7 +400,7 @@ namespace AdvancedPathfinder.RailPathfinder
         private void HighlightNodes()
         {
             HideHighlighters();
-            foreach (RailPathfinderNode node in _nodes)
+            foreach (RailPathfinderNode node in Graph.Nodes)
             {
                 HighlightNode(node, Color.green.WithAlpha(0.25f));
             }
@@ -649,7 +409,7 @@ namespace AdvancedPathfinder.RailPathfinder
         private void HighlightLastVisitedNodes()
         {
             HideHighlighters();
-            foreach (RailPathfinderNode node in _nodes)
+            foreach (RailPathfinderNode node in Graph.Nodes)
             {
                 if (node.LastPathLength == null)
                     continue;
@@ -684,7 +444,7 @@ namespace AdvancedPathfinder.RailPathfinder
         {
             HideHighlighters();
             int idx = 0;
-            foreach (RailSection section in _sections)
+            foreach (RailSection section in Graph.Sections)
             {
                 Color color = Colors[idx].WithAlpha(0.4f);
                 HighlightSection(section, color);
@@ -705,7 +465,7 @@ namespace AdvancedPathfinder.RailPathfinder
         {
             HideHighlighters();
             int idx = 0;
-            foreach (RailSection section in _sections)
+            foreach (RailSection section in Graph.Sections)
             {
                 float? closedLength = section.CachedClosedBlockLength;
                 if (closedLength is > 0)
