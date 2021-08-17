@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using HarmonyLib;
 using VoxelTycoon;
 using VoxelTycoon.Buildings;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Helpers
 {
     [HarmonyPatch]
     public class TrackHelper: LazyManager<TrackHelper>

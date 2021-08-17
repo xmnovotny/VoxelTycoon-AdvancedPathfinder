@@ -1,7 +1,7 @@
 ﻿//#define DISABLE
 using System.Collections.Generic;
 using AdvancedPathfinder.PathSignals;
-using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.RailPathfinder;
 using AdvancedPathfinder.UI;
 using HarmonyLib;
 using ModSettingsUtils;

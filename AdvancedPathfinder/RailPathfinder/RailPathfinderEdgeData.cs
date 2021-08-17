@@ -1,4 +1,4 @@
-﻿namespace AdvancedPathfinder.Rails
+﻿namespace AdvancedPathfinder.RailPathfinder
 {
     public class RailPathfinderEdgeData: RailSectionDataBase
     {

@@ -7,7 +7,7 @@ using VoxelTycoon;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Helpers
 {
     [HarmonyPatch]
     public class RailBlockHelper: SimpleLazyManager<RailBlockHelper>

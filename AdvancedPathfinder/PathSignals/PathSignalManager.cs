@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using AdvancedPathfinder.Rails;
+using AdvancedPathfinder.Helpers;
+using AdvancedPathfinder.RailPathfinder;
 using AdvancedPathfinder.UI;
 using Delegates;
 using HarmonyLib;
@@ -15,6 +16,7 @@ using VoxelTycoon.Serialization;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
+using TrackHelper = AdvancedPathfinder.Helpers.TrackHelper;
 
 namespace AdvancedPathfinder.PathSignals
 {

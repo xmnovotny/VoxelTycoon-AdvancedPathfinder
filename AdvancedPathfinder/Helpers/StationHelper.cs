@@ -5,7 +5,7 @@ using VoxelTycoon.Buildings;
 using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Helpers
 {
     [HarmonyPatch]
     public class StationHelper<TTrackConnection, TStation>: LazyManager<StationHelper<TTrackConnection, TStation>>

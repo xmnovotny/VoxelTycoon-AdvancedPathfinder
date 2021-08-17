@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using HarmonyLib;
 using JetBrains.Annotations;
 using VoxelTycoon;
@@ -8,7 +7,7 @@ using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
 
-namespace AdvancedPathfinder
+namespace AdvancedPathfinder.Helpers
 {
     [HarmonyPatch]
     internal class TrainHelper: SimpleLazyManager<TrainHelper>
