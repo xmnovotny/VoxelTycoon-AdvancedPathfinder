@@ -17,7 +17,7 @@ using TrackHelper = AdvancedPathfinder.Helpers.TrackHelper;
 
 namespace AdvancedPathfinder.RailPathfinder
 {
-    public class RailPathfinderManager: Manager<RailPathfinderManager>, IRailSectionFinder
+    public class RailPathfinderManager: Manager<RailPathfinderManager>
     {
         //TODO: Optimize checking direction of path from starting connection to the first node
         //TODO: refresh highlighted path after detaching a train
