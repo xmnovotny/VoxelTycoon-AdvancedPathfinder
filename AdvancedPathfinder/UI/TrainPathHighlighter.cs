@@ -147,7 +147,7 @@ namespace AdvancedPathfinder.UI
 
         private void ShowForInternal(Train train)
         {
-            if (_data.ContainsKey(train))
+            if (_data.ContainsKey(train) || !DisplayIndividualPaths && !DisplayAllTrainsPaths)
                 return;
             TrainData data = new TrainData(train, SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train), GetColor());
             _data.Add(train, data);

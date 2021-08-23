@@ -98,6 +98,8 @@ namespace AdvancedPathfinder.UI
 
         private Highlighter GetOrCreateFullHighlighterObject(Rail track)
         {
+            if (ReferenceEquals(track, null) || !track.IsBuilt)
+                return null;
             if (_cacheFull.TryGetValue(track, out List<Highlighter> cached))
             {
                 foreach (Highlighter highlighter in cached)

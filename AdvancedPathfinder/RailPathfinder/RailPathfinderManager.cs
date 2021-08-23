@@ -402,7 +402,7 @@ namespace AdvancedPathfinder.RailPathfinder
             HideHighlighters();
             foreach (RailPathfinderNode node in Graph.Nodes)
             {
-                HighlightNode(node, Color.green.WithAlpha(0.25f));
+                HighlightNode(node, Color.cyan.WithAlpha(0.8f));
             }
         }
 

@@ -27,6 +27,7 @@ namespace AdvancedPathfinder.PathSignals
         //TODO: optimize == operators on RailBlocks
         //TODO: rewrite functions for finding path when there is a nonstop task
         //TODO: Fix fully block a block when passing a signal at red while no train is in the block
+        //TODO: Do beyond path blocking after train attaches to the first connection, then replace beyond path by real path
         private readonly Dictionary<RailSignal, PathSignalData> _pathSignals = new();
         private readonly Dictionary<RailBlock, RailBlockData> _railBlocks = new();
         private readonly HashSet<RailSignal> _changedStates = new(); //list of signals with changed states (for performance)

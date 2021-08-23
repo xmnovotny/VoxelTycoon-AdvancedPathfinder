@@ -132,7 +132,7 @@ namespace AdvancedPathfinder.PathSignals
                     highMan.SafeHide(data.reservedHigh);
                 }
 
-                if (!ReferenceEquals(newReserved, null))
+                if (!ReferenceEquals(newReserved, null) && newReserved.IsBuilt)
                 {
                     data.reservedHigh = highMan.ForOneTrack(newReserved, Color.black, 0.6f);
                 }
@@ -146,7 +146,7 @@ namespace AdvancedPathfinder.PathSignals
                     highMan.SafeHide(data.nonstopHigh);
                 }
 
-                if (!ReferenceEquals(newNonstop, null))
+                if (!ReferenceEquals(newNonstop, null) && newNonstop.IsBuilt)
                 {
                     data.nonstopHigh = highMan.ForOneTrack(newNonstop, Color.blue, 0.7f);
                 }
