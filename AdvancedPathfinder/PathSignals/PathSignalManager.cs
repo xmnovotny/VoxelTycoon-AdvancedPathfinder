@@ -522,6 +522,11 @@ namespace AdvancedPathfinder.PathSignals
 //                FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}, reservedPathIndex: {pathIds.reservedIdx}");
                 _reservedPathIndex[train] = pathIds;
                 _updateTrainBoundsHighlight.Add(train);
+                if (ReferenceEquals(train.FrontBound.Connection, signal.Connection))
+                {
+                    //connection with signal is reached - we need to call TrainConnectionReached to proper signal release after passing
+                    TrainConnectionReached(train, signal.Connection);
+                }
             }
 
             Manager<RailPathfinderManager>.Current!.Stats?.StopSignalOpenForTrain();
