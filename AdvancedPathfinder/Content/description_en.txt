@@ -65,6 +65,14 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 1.0.1[/b]
+[list]
+[*] Added a chinese translation (thanks to TheHZDev Github user).
+[*] Train path highlighted for train with opened window is brighter than for the other trains when all train paths option is enabled
+[*] Fixed signals occasionally remained green after train passed them and then a next train was blocked
+[*] Fixed not updating a train path in certain cases
+[*] Fixed null reference after removing a station
+[/list]
 [b]Version 1.0[/b]
 [list]
 [*] Allow signals in the middle of one signalling block (in vanilla game this signals aren't passable by the train)

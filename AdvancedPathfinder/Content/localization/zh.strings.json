@@ -1,0 +1,7 @@
+{
+  "advanced_pathfinder_mod/highlight_train_path": "当火车设置界面打开时高亮火车路径",
+  "advanced_pathfinder_mod/highlight_all_train_path": "高亮所有火车的路径",
+  "advanced_pathfinder_mod/highlight_all_train_path_notice": "(可能会影响游戏性能)",
+  "advanced_pathfinder_mod/highlight_reserved_path": "突出显示路径信号中的保留路径",
+  "advanced_pathfinder_mod/highlight_reserved_path_extended": "路径信号中的额外高亮 (仅限调试使用)"
+}
