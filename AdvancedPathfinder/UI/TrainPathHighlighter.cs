@@ -55,7 +55,7 @@ namespace AdvancedPathfinder.UI
                     {
                         foreach (Train train in _displayedWindow)
                         {
-                            ShowForInternal(train);
+                            ShowForInternal(train, true);
                         }
                     } else 
                     {
@@ -91,13 +91,17 @@ namespace AdvancedPathfinder.UI
                 throw new InvalidOperationException("Already displayed for this train");
             }
             _displayedWindow.Add(train);
-            ShowForInternal(train);
+            ShowForInternal(train, true);
         }
 
         public void HideFor(Train train)
         {
             if (!_displayAllTrainsPaths)
                 HideForInternal(train);
+            else if (_data.TryGetValue(train, out TrainData data))
+            {
+                data.Brighter = false;
+            }
             _displayedWindow.Remove(train);
         }
 
@@ -109,8 +113,9 @@ namespace AdvancedPathfinder.UI
 
         private void OnTrainAttached(Train train, PathCollection path)
         {
-            if (_displayAllTrainsPaths || _displayedWindow.Contains(train))
-                ShowForInternal(train);
+            bool? brighter = _displayedWindow.Contains(train) ? true : null;
+            if (_displayAllTrainsPaths || (brighter == true))
+                ShowForInternal(train, brighter);
         }
 
         private void OnTrainDetached(Train train)
@@ -124,7 +129,7 @@ namespace AdvancedPathfinder.UI
             for (int i = trains.Count - 1; i >= 0; i--)
             {
                 Train train = (Train) trains[i];
-                ShowForInternal(train);
+                ShowForInternal(train, null);
             }
         }
 
@@ -145,11 +150,18 @@ namespace AdvancedPathfinder.UI
             }
         }
 
-        private void ShowForInternal(Train train)
+        private void ShowForInternal(Train train, bool? brighter)
         {
-            if (_data.ContainsKey(train) || !DisplayIndividualPaths && !DisplayAllTrainsPaths)
+            if (!DisplayIndividualPaths && !DisplayAllTrainsPaths)
                 return;
-            TrainData data = new TrainData(train, SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train), GetColor());
+            if (_data.TryGetValue(train, out TrainData data))
+            {
+                if (brighter.HasValue)
+                    data.Brighter = brighter.Value;
+                return;
+            }
+
+            data = new TrainData(train, SimpleLazyManager<TrainHelper>.Current.GetTrainPath(train), GetColor(), brighter == true);
             _data.Add(train, data);
             data.RedrawPath();
         }
@@ -188,6 +200,7 @@ namespace AdvancedPathfinder.UI
         
         private class TrainData
         {
+            private const float HalfWidth = 0.2f;
             private readonly Dictionary<RailConnection, Highlighter> _usedHighlighters = new();
             private static readonly HashSet<RailConnection> TmpToAddHashSet = new();
             private static readonly HashSet<RailConnection> TmpToRemoveHashSet = new();
@@ -195,16 +208,33 @@ namespace AdvancedPathfinder.UI
             private readonly Train _train;
             private readonly PathCollection _path;
             private readonly Color _color;
+            private Color _actualColor;
             private float _lastUpdated;
             public bool IsDirty = true;
+            private bool _brighter;
             public Color Color => _color;
 
+            public bool Brighter
+            {
+                get => _brighter;
+                set
+                {
+                    if (value != _brighter)
+                    {
+                        _brighter = value;
+                        UpdateActualColor();
+                    }
+                }
+            }
 
-            public TrainData(Train train, [NotNull] PathCollection path, Color color)
+
+            public TrainData(Train train, [NotNull] PathCollection path, Color color, bool brighter=false)
             {
                 _train = train;
                 _path = path;
                 _color = color;
+                _brighter = brighter;
+                UpdateActualColor();
             }
 
             public void ReleaseHighlighters()
@@ -256,13 +286,27 @@ namespace AdvancedPathfinder.UI
                 {
                     if (!conn.Track.IsBuilt)
                         continue;
-                    _usedHighlighters.Add(conn, hlMan.ForOneTrack(conn.Track, _color, 0.2f));
+                    _usedHighlighters.Add(conn, hlMan.ForOneTrack(conn.Track, _actualColor, HalfWidth));
                 }
 
 //                FileLog.Log("Updated highlight in {0} ms".Format((sw.ElapsedTicks / 10000f).ToString("N4")));
 
                 IsDirty = false;
                 _lastUpdated = Time.time;
+            }
+
+            private void UpdateActualColor()
+            {
+                if (_brighter)
+                    _actualColor = _color;
+                else
+                    _actualColor = _color.MultiplyAlpha(0.5f);
+
+                RailConnectionHighlighter man = LazyManager<RailConnectionHighlighter>.Current;
+                foreach (Highlighter highlighter in _usedHighlighters.Values)
+                {
+                    man.UpdateColorAndWidth(highlighter, _actualColor, HalfWidth);
+                }
             }
         }
 
