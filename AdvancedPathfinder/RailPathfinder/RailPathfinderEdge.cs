@@ -140,7 +140,7 @@ namespace AdvancedPathfinder.RailPathfinder
             {
                 _data.Combine(section.Data, direction == PathDirection.Backward);
                 RailSignal signal = section.GetLastSignal(direction);
-                if (signal != null)
+                if (!ReferenceEquals(signal, null))
                     lastSignal = signal;
             }
 

@@ -459,7 +459,14 @@ namespace AdvancedPathfinder.RailPathfinder
                 HighlightSection(section, color);
             }
         }
-        
+
+        private void HighlightEdgeLastSignalConnections()
+        {
+            foreach (RailSignal signal in Graph.EdgeLastSignals.Keys)
+            {
+                _highlighters.Add(HighlightConnection(signal.Connection, true, Color.magenta));
+            }
+        }
         
         private void HighlightClosedBlockSections()
         {

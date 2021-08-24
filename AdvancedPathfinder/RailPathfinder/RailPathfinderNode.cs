@@ -49,23 +49,38 @@ namespace AdvancedPathfinder.RailPathfinder
             int hash = destination.GetDestinationHash();
             if (_pathDiversionCache.TryGetValue((hash, train.Electric), out bool isDiversion))
                 return isDiversion;
+            int possibilities = HasPathDiversionInternal(train, destination);
+
+            _pathDiversionCache[(hash, train.Electric)] = possibilities > 1;
+            return possibilities > 1;
+        }
+
+        private int HasPathDiversionInternal(Train train, IVehicleDestination destination)
+        {
             
             int possibilities = 0;
             HashSet<RailPathfinderNode> convertedDest = Manager<RailPathfinderManager>.Current.GetConvertedDestination(destination);
+            using PooledList<RailPathfinderNode> nodesToProcess = PooledList<RailPathfinderNode>.Take();
             for (int i = Edges.Count - 1; i >= 0; i--)
             {
                 RailPathfinderEdge edge = Edges[i];
                 if (!edge.IsPassable(train.Electric))
                     continue;
-                ;
 
                 RailPathfinderNode nextNode = (RailPathfinderNode) edge.NextNode;
                 if (nextNode == null)
                     continue;
 
+                if (ReferenceEquals(edge.LastSignal, null))
+                {
+                    //no signal in the edge, we need look for diversion from next node (will be processed after this processing)
+                    nodesToProcess.Add(nextNode);
+                    continue;
+                }
+
                 Dictionary<PathfinderNodeBase, float> reachNodes = nextNode.GetReachableNodes(new RailEdgeSettings() {Electric = train.Electric});
                 if (reachNodes == null) //incomplete reachable nodes, cannot determine if path can be diversified, so return true for path update 
-                    return true;
+                    return 2;
 
                 foreach (RailPathfinderNode targetNode in convertedDest)
                 {
@@ -73,8 +88,7 @@ namespace AdvancedPathfinder.RailPathfinder
                     {
                         if (++possibilities > 1)
                         {
-                            _pathDiversionCache[(hash, train.Electric)] = true;
-                            return true;
+                            return 2;
                         }
 
                         break;
@@ -82,8 +96,17 @@ namespace AdvancedPathfinder.RailPathfinder
                 }
             }
 
-            _pathDiversionCache[(hash, train.Electric)] = false;
-            return false;
+            if (possibilities < 2 && nodesToProcess.Count > 0)
+            {
+                foreach (RailPathfinderNode node in nodesToProcess)
+                {
+                    possibilities += node.HasPathDiversionInternal(train, destination);
+                    if (possibilities > 1)
+                        return 2;
+                }
+            }
+
+            return possibilities;
         }
 
         internal void Initialize(RailConnection inboundConnection, bool trackStart = false)
