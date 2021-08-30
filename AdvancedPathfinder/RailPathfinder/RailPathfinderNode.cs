@@ -21,6 +21,7 @@ namespace AdvancedPathfinder.RailPathfinder
         
         private bool _initialized = false;
 
+        private int _visitedId; 
         public IReadOnlyCollection<RailConnection> InboundConnections => _inboundConnections;
         public IReadOnlyCollection<RailConnection> OutboundConnections => _outboundConnections;
         public ImmutableList<RailPathfinderEdge> Edges => _edges.ToImmutableList();
@@ -49,13 +50,13 @@ namespace AdvancedPathfinder.RailPathfinder
             int hash = destination.GetDestinationHash();
             if (_pathDiversionCache.TryGetValue((hash, train.Electric), out bool isDiversion))
                 return isDiversion;
-            int possibilities = HasPathDiversionInternal(train, destination);
+            int possibilities = HasPathDiversionInternal(train, destination, Manager<RailPathfinderManager>.Current.GetNewVisitedId());
 
             _pathDiversionCache[(hash, train.Electric)] = possibilities > 1;
             return possibilities > 1;
         }
 
-        private int HasPathDiversionInternal(Train train, IVehicleDestination destination)
+        private int HasPathDiversionInternal(Train train, IVehicleDestination destination, int visitedID)
         {
             
             int possibilities = 0;
@@ -68,9 +69,10 @@ namespace AdvancedPathfinder.RailPathfinder
                     continue;
 
                 RailPathfinderNode nextNode = (RailPathfinderNode) edge.NextNode;
-                if (nextNode == null)
+                if (nextNode == null || nextNode._visitedId == visitedID)
                     continue;
 
+                nextNode._visitedId = visitedID;
                 if (ReferenceEquals(edge.LastSignal, null))
                 {
                     //no signal in the edge, we need look for diversion from next node (will be processed after this processing)
@@ -100,7 +102,7 @@ namespace AdvancedPathfinder.RailPathfinder
             {
                 foreach (RailPathfinderNode node in nodesToProcess)
                 {
-                    possibilities += node.HasPathDiversionInternal(train, destination);
+                    possibilities += node.HasPathDiversionInternal(train, destination, visitedID);
                     if (possibilities > 1)
                         return 2;
                 }

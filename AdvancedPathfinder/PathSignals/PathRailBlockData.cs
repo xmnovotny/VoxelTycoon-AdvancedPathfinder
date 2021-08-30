@@ -23,6 +23,7 @@ namespace AdvancedPathfinder.PathSignals
 
         private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedBeyondPath = new(); //only rails in possible path, not linked rails
         private readonly Dictionary<Train, PooledHashSet<Rail>> _reservedTrainPath = new(); //only rails in train path, not linked rails
+        private readonly HashSet<Rail> _reservedSignalRails = new();  //track with reserved inbound signal (for proper releasing only)
 
         internal IReadOnlyDictionary<Rail, int> BlockedLinkedRails => _blockedLinkedRails;
         internal IReadOnlyDictionary<Rail, int> BlockedRails => _blockedRails;
@@ -69,8 +70,9 @@ namespace AdvancedPathfinder.PathSignals
             {
                 ReleaseRailSegmentInternal(rail, releasedRailsSum);
 //                FileLog.Log($"ReleaseSegmentSuccess, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
-                ReleaseInboundSignal(train, rail);
             }
+            if (_reservedSignalRails.Remove(rail))
+                ReleaseInboundSignal(train, rail);
 
             if (reservedList.Count == 0)
             {
@@ -389,7 +391,10 @@ namespace AdvancedPathfinder.PathSignals
                 startSignal.ReservedForTrain = train;
 //                FileLog.Log($"{train.Name}, signal {startSignal.GetHashCode():X8}: Reserved");
 
-                
+                if (!_reservedSignalRails.Add(startSignal.Signal.Connection.Track))
+                {
+                    AdvancedPathfinderMod.Logger.Log("Multiple reservation of one signal");
+                }
                 SimpleLazyManager<RailBlockHelper>.Current.AddBlockedRails(railsSum, Block);
             }
             catch (Exception e) when (ExceptionFault.FaultBlock(e, delegate

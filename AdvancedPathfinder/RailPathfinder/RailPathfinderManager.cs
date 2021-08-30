@@ -45,6 +45,7 @@ namespace AdvancedPathfinder.RailPathfinder
 
         private readonly HashSet<Highlighter> _highlighters = new();
         private bool _graphDirty;
+        private int _visitedId;
         public float ElapsedMilliseconds { get; private set; }
         public RailPathfinderGraph Graph { get; private set; }
 
@@ -108,6 +109,8 @@ namespace AdvancedPathfinder.RailPathfinder
                 throw new InvalidOperationException("Stats already created");
             Stats = new PathfinderStats();
         }
+
+        internal int GetNewVisitedId() => ++_visitedId;
 
         internal HashSet<RailPathfinderNode> GetConvertedDestination(IVehicleDestination destination)
         {
