@@ -61,7 +61,7 @@ namespace AdvancedPathfinder
             if (reduceNodes)
             {
                 //path was not found with reduced node list, retry find with all nodes
-                FileLog.Log("Path was not found with reduced node list. Refind with full list.");
+                AdvancedPathfinderMod.Logger.Log("Path was not found with reduced node list. New finding with a full list.");
                 Initialize(startNode, nodeList);
                 checker = new OneOfManyNodesTargetChecker(targetNodes);
                 return Calculate(edgeSettings, checker) ? checker.FoundNode : null;

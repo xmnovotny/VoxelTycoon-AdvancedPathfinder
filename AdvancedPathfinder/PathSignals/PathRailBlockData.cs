@@ -219,22 +219,34 @@ namespace AdvancedPathfinder.PathSignals
                     }
                 }
             }
-
             if (idx == path.FrontIndex && !ReferenceEquals(connection, null) && ReferenceEquals(connection.Block, Block))
             {
                 //reserve beyond path
                 ReleaseBeyondPath(train, releasedRailsSum); //release old beyond path
                 PooledHashSet<Rail> reservedBeyondPath = PooledHashSet<Rail>.Take();
+                bool skipUntilNextBaseRail = false;
                 try
                 {
                     foreach (RailToBlock railToBlock in BeyondPathEnum(connection))
                     {
+                        if (skipUntilNextBaseRail && railToBlock.IsLinkedRail)
+                            continue;
                         if (!railToBlock.IsLinkedRail)
                         {
+                            if (reservedBeyondPath.Contains(railToBlock.Rail))  //rail is already reserved, this is opposite direction for reserve - do not add to blocked
+                            {
+                                skipUntilNextBaseRail = true;
+                                continue;
+                            }
+
+                            skipUntilNextBaseRail = false;
                             _blockedRails.AddIntToDict(railToBlock.Rail, 1);
                             highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BlockedRail, 1);
                             highMan?.HighlightChange(railToBlock.Rail, PathSignalHighlighter.HighlighterType.BeyondPath, 1);
-                            reservedBeyondPath.Add(railToBlock.Rail);
+                            if (!reservedBeyondPath.Add(railToBlock.Rail))
+                            {
+                                AdvancedPathfinderMod.Logger.Log("Repeated reservation of beyond path");
+                            }
                         }
                         else
                         {

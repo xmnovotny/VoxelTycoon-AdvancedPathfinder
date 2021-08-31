@@ -327,8 +327,8 @@ namespace AdvancedPathfinder.RailPathfinder
                         Pathfinder.GetDistances(reachableNodes);
                         originNode.SetReachableNodes(reachableNodes, newEdgeSettings);
                         sw2.Stop();
-                        FileLog.Log(
-                            $"Find reachable nodes, original count {nodesList.Count}, reachable {reachableNodes.Count}, in {(sw2.ElapsedTicks / 10000f):N2}ms");
+//                        FileLog.Log(
+//                            $"Find reachable nodes, original count {nodesList.Count}, reachable {reachableNodes.Count}, in {(sw2.ElapsedTicks / 10000f):N2}ms");
                         nodesList = reachableNodes;
                     }
                 }
