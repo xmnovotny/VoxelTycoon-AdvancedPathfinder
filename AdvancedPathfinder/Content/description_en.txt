@@ -65,6 +65,12 @@ Highlighting paths can be turned on by Game Settings -> Mods and clicking on the
 Mod is not compatible with [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2495911272]Path highlighter mod[/url], but it provides own path highlighting.
 
 [h2] Latest changes [/h2]
+[b]Version 1.0.2[/b]
+[list]
+[*] Fixed deadlock when determining the possibility of a diversion
+[*] Fixed not setting the red signal when shrinking a train path (possible cause of a train crash)
+[*] Fixed incorrectly reserving and releasing rail segments after the end of a path when there is a circle in the block.
+[/list]
 [b]Version 1.0.1[/b]
 [list]
 [*] Added a chinese translation (thanks to TheHZDev Github user).
