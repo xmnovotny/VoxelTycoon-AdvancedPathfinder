@@ -21,7 +21,8 @@ namespace AdvancedPathfinder.RailPathfinder
         
         private bool _initialized = false;
 
-        private int _visitedId; 
+        private int _visitedId;
+        private int _numPossibilities;
         public IReadOnlyCollection<RailConnection> InboundConnections => _inboundConnections;
         public IReadOnlyCollection<RailConnection> OutboundConnections => _outboundConnections;
         public ImmutableList<RailPathfinderEdge> Edges => _edges.ToImmutableList();
@@ -50,29 +51,39 @@ namespace AdvancedPathfinder.RailPathfinder
             int hash = destination.GetDestinationHash();
             if (_pathDiversionCache.TryGetValue((hash, train.Electric), out bool isDiversion))
                 return isDiversion;
-            int possibilities = HasPathDiversionInternal(train, destination, Manager<RailPathfinderManager>.Current.GetNewVisitedId());
+
+            HashSet<RailPathfinderNode> convertedDest = Manager<RailPathfinderManager>.Current.GetConvertedDestination(destination);
+            int possibilities = HasPathDiversionInternal(train, convertedDest, Manager<RailPathfinderManager>.Current.GetNewVisitedId());
 
             _pathDiversionCache[(hash, train.Electric)] = possibilities > 1;
             return possibilities > 1;
         }
 
-        private int HasPathDiversionInternal(Train train, IVehicleDestination destination, int visitedID)
+        private int HasPathDiversionInternal(Train train, HashSet<RailPathfinderNode> convertedDest, int visitedID)
         {
+            if (_visitedId == visitedID)
+                return _numPossibilities;
+            _visitedId = visitedID;
             
-            int possibilities = 0;
-            HashSet<RailPathfinderNode> convertedDest = Manager<RailPathfinderManager>.Current.GetConvertedDestination(destination);
+            _numPossibilities = 0;
             using PooledList<RailPathfinderNode> nodesToProcess = PooledList<RailPathfinderNode>.Take();
+
             for (int i = Edges.Count - 1; i >= 0; i--)
             {
                 RailPathfinderEdge edge = Edges[i];
                 if (!edge.IsPassable(train.Electric))
                     continue;
 
-                RailPathfinderNode nextNode = (RailPathfinderNode) edge.NextNode;
-                if (nextNode == null || nextNode._visitedId == visitedID)
+                RailPathfinderNode nextNode = (RailPathfinderNode)edge.NextNode;
+                if (nextNode == null)
                     continue;
 
-                nextNode._visitedId = visitedID;
+                if (convertedDest.Contains(nextNode))
+                {
+                    if (++_numPossibilities > 1)
+                        return 2;
+                    continue;
+                }
                 if (ReferenceEquals(edge.LastSignal, null))
                 {
                     //no signal in the edge, we need look for diversion from next node (will be processed after this processing)
@@ -80,7 +91,7 @@ namespace AdvancedPathfinder.RailPathfinder
                     continue;
                 }
 
-                Dictionary<PathfinderNodeBase, float> reachNodes = nextNode.GetReachableNodes(new RailEdgeSettings() {Electric = train.Electric});
+                Dictionary<PathfinderNodeBase, float> reachNodes = nextNode.GetReachableNodes(new RailEdgeSettings() { Electric = train.Electric });
                 if (reachNodes == null) //incomplete reachable nodes, cannot determine if path can be diversified, so return true for path update 
                     return 2;
 
@@ -88,27 +99,26 @@ namespace AdvancedPathfinder.RailPathfinder
                 {
                     if (reachNodes.ContainsKey(targetNode))
                     {
-                        if (++possibilities > 1)
+                        if (++_numPossibilities > 1)
                         {
                             return 2;
                         }
-
                         break;
                     }
                 }
             }
 
-            if (possibilities < 2 && nodesToProcess.Count > 0)
+            if (_numPossibilities < 2 && nodesToProcess.Count > 0)
             {
                 foreach (RailPathfinderNode node in nodesToProcess)
                 {
-                    possibilities += node.HasPathDiversionInternal(train, destination, visitedID);
-                    if (possibilities > 1)
+                    _numPossibilities += node.HasPathDiversionInternal(train, convertedDest, visitedID);
+                    if (_numPossibilities > 1)
                         return 2;
                 }
             }
 
-            return possibilities;
+            return _numPossibilities;
         }
 
         internal void Initialize(RailConnection inboundConnection, bool trackStart = false)
