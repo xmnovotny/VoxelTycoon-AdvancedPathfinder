@@ -305,7 +305,8 @@ namespace AdvancedPathfinder.UI
                 RailConnectionHighlighter man = LazyManager<RailConnectionHighlighter>.Current;
                 foreach (Highlighter highlighter in _usedHighlighters.Values)
                 {
-                    man.UpdateColorAndWidth(highlighter, _actualColor, HalfWidth);
+                    if (highlighter != null && highlighter.gameObject != null)
+                        man.UpdateColorAndWidth(highlighter, _actualColor, HalfWidth);
                 }
             }
         }
