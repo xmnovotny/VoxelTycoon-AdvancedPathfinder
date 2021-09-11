@@ -15,7 +15,31 @@ namespace AdvancedPathfinder.PathSignals
 
         public Action<PathSignalData> StateChanged;
         private Train _reservedForTrain;
+        private readonly RailSignal _oppositeSignal;
+        private PathSignalData _oppositeSignalData;
+        private HashSet<Train> _preReservedForTrains;
 
+        public PathSignalData OppositeSignalData
+        {
+            get
+            {
+                if (_oppositeSignalData == null && HasOppositeSignal)
+                {
+                    _oppositeSignalData = SimpleManager<PathSignalManager>.Current!.GetPathSignalData(_oppositeSignal);
+                }
+
+                return _oppositeSignalData;
+            }
+        }
+
+        public readonly bool HasOppositeSignal;
+        public bool IsPreReserved => _preReservedForTrains?.Count > 0;
+
+        public bool IsPreReservedForTrain(Train train)
+        {
+            return _preReservedForTrains?.Contains(train) == true;
+        }
+        
         public Train ReservedForTrain
         {
             get => _reservedForTrain;
@@ -23,15 +47,17 @@ namespace AdvancedPathfinder.PathSignals
             {
                 if (!ReferenceEquals(value,_reservedForTrain))
                 {
-/*                    if (value == null )
-                        FileLog.Log($"ReleasedSignal {GetHashCode():X8}");
-                    else
-                        FileLog.Log($"ReservedSignal {GetHashCode():X8}");*/
                     _reservedForTrain = value;
                     if (ReferenceEquals(value, null))
                         SimpleManager<PathSignalManager>.Current!.OpenedSignals.Remove(Signal);
                     else
+                    {
+                        _preReservedForTrains?.Remove(value);
+                        if (_preReservedForTrains?.Count == 0)
+                            SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPreReservedSignal(Signal, false);
                         SimpleManager<PathSignalManager>.Current!.OpenedSignals[Signal] = value;
+                    }
+
                     StateChanged?.Invoke(this);
                 }
             }
@@ -42,6 +68,29 @@ namespace AdvancedPathfinder.PathSignals
             Signal = signal;
             BlockData = blockData;
             IsChainSignal = CheckIsChainSignal(signal);
+            _oppositeSignal = signal.Connection.InnerConnection.Signal;
+            if (_oppositeSignal != null)
+            {
+                _preReservedForTrains = new HashSet<Train>();
+                HasOppositeSignal = true;
+            }
+        }
+
+        public void PreReserveForTrain(Train train)
+        {
+            if (_preReservedForTrains == null)
+                _preReservedForTrains = new HashSet<Train>();
+            bool oldIsPreReserved = _preReservedForTrains.Count > 0;
+            _preReservedForTrains.Add(train);
+            if (!oldIsPreReserved)
+                SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPreReservedSignal(Signal, true);
+        }
+
+        public void RemovePreReservation(Train train)
+        {
+            _preReservedForTrains?.Remove(train);
+            if (_preReservedForTrains?.Count == 0)
+                SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPreReservedSignal(Signal, false);
         }
 
         public RailSignalState GetSignalState()

@@ -45,9 +45,11 @@ namespace AdvancedPathfinder.PathSignals
         
         private bool _highlightPaths = false;
         private bool _highlightReservedBounds;
+        private bool _highlightPreReservedSignals;
         private readonly Dictionary<Rail,HighlightersData> _highlighters = new();
         private readonly Dictionary<Train, (Rail reservedRail, Rail nonstopRail, Highlighter reservedHigh, Highlighter nonstopHigh)> _bounds = new();
         private readonly HashSet<RailBlockData> _fullHighlights = new();
+        private readonly Dictionary<RailSignal, Highlighter> _preReservedSignals = new();
 
         public bool HighlightPaths
         {
@@ -88,6 +90,27 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
+        public bool HighlightPreReservedSignals
+        {
+            get => _highlightPreReservedSignals;
+            set
+            {
+                if (SimpleManager<PathSignalManager>.Current == null)
+                    value = false;
+                if (_highlightPreReservedSignals != value)
+                {
+                    _highlightPreReservedSignals = value;
+                    if (_highlightPaths)
+                    {
+                        if (value)
+                            HighlightAllPreReservedSignals();
+                        else
+                            HideHighlightedPreReservedSignals();
+                    }
+                }
+            }
+        }
+
         public void HighlightChange(Rail rail, HighlighterType type, int countDiff)
         {
             HighlightersData data = GetOrCreateHighlightersData(rail);
@@ -113,7 +136,28 @@ namespace AdvancedPathfinder.PathSignals
             if (_highlightPaths)
             {
                 HideHighlighters();
+                HideHighlightedPreReservedSignals();
                 HighlightReservedPaths();
+                HighlightAllPreReservedSignals();
+            }
+        }
+
+        public void HighlightPreReservedSignal(RailSignal signal, bool isPreReserved)
+        {
+            if (!_highlightReservedBounds || ReferenceEquals(signal, null))
+                return;
+            RailConnectionHighlighter highMan = LazyManager<RailConnectionHighlighter>.Current;
+            if (isPreReserved) {
+                if (signal.IsBuilt && !_preReservedSignals.ContainsKey(signal))
+                    _preReservedSignals.Add(signal, highMan.ForOneConnection(signal.Connection.InnerConnection, Color.white, 0.6f));
+            }
+            else
+            {
+                if (_preReservedSignals.TryGetValue(signal, out Highlighter highlighter))
+                {
+                    _preReservedSignals.Remove(signal);
+                    highMan.SafeHide(highlighter);
+                }
             }
         }
 
@@ -155,7 +199,7 @@ namespace AdvancedPathfinder.PathSignals
             if (change)
                 _bounds[train] = data;
         }
-
+        
         private HighlightersData GetOrCreateHighlightersData(Rail rail)
         {
             if (!_highlighters.TryGetValue(rail, out HighlightersData data))
@@ -208,6 +252,8 @@ namespace AdvancedPathfinder.PathSignals
             
             if (_highlightReservedBounds)
                 HighlightAllReservedBounds();
+            if (_highlightPreReservedSignals)
+                HighlightAllPreReservedSignals();
         }
 
         private void HighlightFullBlock(RailBlock block, bool highlighted)
@@ -231,6 +277,7 @@ namespace AdvancedPathfinder.PathSignals
             _fullHighlights.Clear();
             
             HideHighlightedBounds();
+            HideHighlightedPreReservedSignals();
         }
 
         private void HideHighlightedBounds()
@@ -250,6 +297,39 @@ namespace AdvancedPathfinder.PathSignals
             foreach ((Train train, Rail reserved, Rail nonstop) in SimpleManager<PathSignalManager>.Current!.GetReservedBoundsForHighlight())
             {
                 HighlightReservedBoundsForTrain(train, reserved, nonstop);
+            }
+        }
+
+        private void HideHighlightedPreReservedSignals()
+        {
+            RailConnectionHighlighter highMan = LazyManager<RailConnectionHighlighter>.Current;
+            foreach (Highlighter highlighter in _preReservedSignals.Values)
+            {
+                highMan.SafeHide(highlighter);
+            }
+
+            _bounds.Clear();
+        }
+        
+        private void HighlightAllPreReservedSignals()
+        {
+            if (!_highlightReservedBounds)
+                return;
+            
+            using PooledHashSet<RailSignal> signalsToHide = PooledHashSet<RailSignal>.Take();
+            signalsToHide.UnionWith(_preReservedSignals.Keys);
+            RailConnectionHighlighter highMan = LazyManager<RailConnectionHighlighter>.Current;
+            foreach (RailSignal signal in SimpleManager<PathSignalManager>.Current!.GetPreReservedSignalsForHighlight())
+            {
+                if (!signalsToHide.Remove(signal))
+                {
+                    HighlightPreReservedSignal(signal, true);
+                }
+            }
+
+            foreach (RailSignal signal in signalsToHide)
+            {
+                HighlightPreReservedSignal(signal, false);
             }
         }
 

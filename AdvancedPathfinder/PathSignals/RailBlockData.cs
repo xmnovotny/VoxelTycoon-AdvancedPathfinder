@@ -13,6 +13,7 @@ namespace AdvancedPathfinder.PathSignals
     {
         private Action<RailBlockData, bool> _blockFreeChangedEvent;
         public readonly Dictionary<RailSignal, PathSignalData> InboundSignals = new();
+        public readonly HashSet<RailSignal> OutboundSignals = new();
         private bool _isFullBlocked;
         public RailBlock Block { get; }
 
@@ -58,6 +59,7 @@ namespace AdvancedPathfinder.PathSignals
         protected RailBlockData(RailBlockData blockData): this(blockData.Block)
         {
             InboundSignals.AddRange(blockData.InboundSignals);
+            OutboundSignals.UnionWith(blockData.OutboundSignals);
             _blockFreeChangedEvent = blockData._blockFreeChangedEvent;
         }
         
@@ -73,9 +75,18 @@ namespace AdvancedPathfinder.PathSignals
                 IsFullBlocked = Block.Value != 0;
         }
 
-        internal abstract bool TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex,
-            out int reservedIndex);
+        internal ReserveResult TryReservePath(Train train, PathCollection path, int startIndex)
+        {
+            using ReserveResult reserveResult = new ReserveResult();
+            reserveResult.IsReserved = TryReservePathInternal(train, path, startIndex, reserveResult);
+            if (reserveResult.IsReserved)
+                reserveResult.PreReserveSelectedSignals(train);
+            return reserveResult;
+        }
+//        internal abstract ReserveResult TryReservePath([NotNull] Train train, [NotNull] PathCollection path, int startIndex);
 
+        protected internal abstract bool TryReservePathInternal([NotNull] Train train, [NotNull] PathCollection path, int startIndex, ReserveResult reserveResult, bool onlyPreReservation = false);
+        
         protected PathSignalData GetAndTestStartSignal(PathCollection path, int startIndex)
         {
             RailSignal startSignal = ((RailConnection) path[startIndex]).Signal;
@@ -97,7 +108,8 @@ namespace AdvancedPathfinder.PathSignals
                     RailSignal signal = rail.GetConnection(i).Signal;
                     if (ReferenceEquals(signal, null) || !signal.IsBuilt || !InboundSignals.TryGetValue(signal, out PathSignalData signalData))
                         continue;
-                        
+
+                    signalData.RemovePreReservation(train);
                     if (ReferenceEquals(signalData.ReservedForTrain, train))
                     {
                         signalData.ReservedForTrain = null;
