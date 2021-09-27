@@ -127,6 +127,20 @@ namespace AdvancedPathfinder.PathSignals
                 }
             }
         }
+        protected void RemovePreReservation(Train train, Rail rail)
+        {
+            if (rail.SignalCount > 0)
+            {
+                for (int i = 0; i <= 1; i++)
+                {
+                    RailSignal signal = rail.GetConnection(i).Signal;
+                    if (ReferenceEquals(signal, null) || !signal.IsBuilt || !InboundSignals.TryGetValue(signal, out PathSignalData signalData))
+                        continue;
+
+                    signalData.RemovePreReservation(train);
+                }
+            }
+        }
 
         public void TryFreeFullBlock()
         {

@@ -61,6 +61,7 @@ namespace AdvancedPathfinder.PathSignals
 //            FileLog.Log($"ReleaseSegmentStart, rail: {rail.GetHashCode():X8} block: {GetHashCode():X}");
             if (!_reservedTrainPath.TryGetValue(train, out PooledHashSet<Rail> reservedList))
             {
+                RemovePreReservation(train, rail);
                 TryFreeFullBlock();
                 return;
             }

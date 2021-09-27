@@ -117,6 +117,7 @@ namespace AdvancedPathfinder.PathSignals
             }
             else
             {
+                RemovePreReservation(train, rail);
                 TryFreeFullBlock();
             }
         }

@@ -519,10 +519,8 @@ namespace AdvancedPathfinder.PathSignals
 //            FileLog.Log($"IsSignalOpenForTrain 2 {result}, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}");
             if (result.IsReserved && ReferenceEquals(signalData.ReservedForTrain, train))
             {
-                (int reservedIdx, int? nextDestinationIdx) pathIds = _reservedPathIndex.GetValueOrDefault(train, (result.ReservedIndex, null));
-                pathIds.reservedIdx = result.ReservedIndex;
+                UpdateReservedPathIndex(train, result.ReservedIndex);
 //                FileLog.Log($"IsSignalOpenForTrain, train: {train.GetHashCode():X8}, signal: {signalData.GetHashCode():X8}, reservedPathIndex: {pathIds.reservedIdx}");
-                _reservedPathIndex[train] = pathIds;
                 _updateTrainBoundsHighlight.Add(train);
                 if (ReferenceEquals(train.FrontBound.Connection, signal.Connection))
                 {
