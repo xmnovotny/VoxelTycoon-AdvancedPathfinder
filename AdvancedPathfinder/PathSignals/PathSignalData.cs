@@ -2,11 +2,15 @@
 using System.Collections.Generic;
 using HarmonyLib;
 using JetBrains.Annotations;
+using VoxelTycoon;
+using VoxelTycoon.Serialization;
+using VoxelTycoon.Tracks;
 using VoxelTycoon.Tracks.Rails;
 using XMNUtils;
 
 namespace AdvancedPathfinder.PathSignals
 {
+    [SchemaVersion(1)]
     public class PathSignalData
     {
         public RailSignal Signal { get; }
@@ -18,6 +22,8 @@ namespace AdvancedPathfinder.PathSignals
         private readonly RailSignal _oppositeSignal;
         private PathSignalData _oppositeSignalData;
         private HashSet<Train> _preReservedForTrains;
+        
+        public Train BlockedForTrain { get; private set; } //path to the opposite signal is blocked (as a result after loading a game with bi-directional single track)
 
         public PathSignalData OppositeSignalData
         {
@@ -53,6 +59,7 @@ namespace AdvancedPathfinder.PathSignals
                     else
                     {
                         _preReservedForTrains?.Remove(value);
+                        BlockedForTrain = null;
                         if (_preReservedForTrains?.Count == 0)
                             SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPreReservedSignal(Signal, false);
                         SimpleManager<PathSignalManager>.Current!.OpenedSignals[Signal] = value;
@@ -89,6 +96,8 @@ namespace AdvancedPathfinder.PathSignals
         public void RemovePreReservation(Train train)
         {
             _preReservedForTrains?.Remove(train);
+            if (ReferenceEquals(train, BlockedForTrain))
+                BlockedForTrain = null;
             if (_preReservedForTrains?.Count == 0)
                 SimpleLazyManager<PathSignalHighlighter>.Current.HighlightPreReservedSignal(Signal, false);
         }
@@ -115,6 +124,44 @@ namespace AdvancedPathfinder.PathSignals
         public static bool CheckIsChainSignal([NotNull] RailSignal signal)
         {
             return signal is ChainBlockRailSignal;
+        }
+
+        internal void Write(StateBinaryWriter writer)
+        {
+            //only writing when there is a opposite signal and there is pre-reservation or is blocked for a train
+            writer.WriteInt(_preReservedForTrains.Count);
+            foreach (Train train in _preReservedForTrains)
+            {
+                writer.WriteInt(train.Id);
+            }
+            //write if block path to the opposite signal (= there is a reserved path within this signal)
+            if (!ReferenceEquals(BlockedForTrain, null) && BlockedForTrain.IsAttached)
+            {
+                writer.WriteInt(BlockedForTrain.Id);
+            } else
+            if (!ReferenceEquals(ReservedForTrain, null) && ReservedForTrain.IsAttached)
+            {
+                writer.WriteInt(ReservedForTrain.Id);
+            } else 
+                writer.WriteInt(0);
+        }
+
+        internal void Read(StateBinaryReader reader)
+        {
+//            reader.ReadTrackConnection();
+            int count = reader.ReadInt();
+            for (int i = 0; i < count; i++)
+            {
+                int id = reader.ReadInt();
+                if (id == 0)
+                    continue;
+                Train train = LazyManager<TrackUnitManager>.Current.FindById(id) as Train;
+                if (!ReferenceEquals(train, null))
+                    _preReservedForTrains.Add(train);
+            }
+
+            int id2 = reader.ReadInt();
+            BlockedForTrain = id2 == 0 ? null : LazyManager<TrackUnitManager>.Current.FindById(id2) as Train;
         }
     }
 }

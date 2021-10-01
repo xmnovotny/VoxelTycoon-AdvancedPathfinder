@@ -21,7 +21,7 @@ using TrackHelper = AdvancedPathfinder.Helpers.TrackHelper;
 namespace AdvancedPathfinder.PathSignals
 {
     [HarmonyPatch]
-    [SchemaVersion(1)]
+    [SchemaVersion(2)]
     public class PathSignalManager : SimpleManager<PathSignalManager>
     {
         //TODO: optimize == operators on RailBlocks
@@ -117,11 +117,15 @@ namespace AdvancedPathfinder.PathSignals
         internal void Write(StateBinaryWriter writer)
         {
             WriteReservedPathIndexes(writer);
+            WritePreReservedSignals(writer);
         }
 
         internal void Read(StateBinaryReader reader)
         {
             ReadReservedPathIndexes(reader);
+            if (SchemaVersion<PathSignalManager>.AtLeast(2))
+                ReadPreReservedSignals(reader);
+            _highlightDirty = true;
         }
 
         internal bool ShouldUpdatePath(Train train, RailSignal signal)
@@ -143,6 +147,40 @@ namespace AdvancedPathfinder.PathSignals
             }
 
             return false;
+        }
+
+        private void WritePreReservedSignals(StateBinaryWriter writer)
+        {
+            PooledList<PathSignalData> dataToWrite = PooledList<PathSignalData>.Take();
+            foreach (PathSignalData pathSignalData in _pathSignals.Values)
+            {
+                if (pathSignalData.IsPreReserved || pathSignalData.HasOppositeSignal && (!ReferenceEquals(pathSignalData.ReservedForTrain, null) || !ReferenceEquals(pathSignalData.BlockedForTrain, null)))
+                {
+                    dataToWrite.Add(pathSignalData);
+                }
+            }
+            writer.WriteInt(dataToWrite.Count);
+            foreach (PathSignalData pathSignalData in dataToWrite)
+            {
+                writer.WriteTrackConnection(pathSignalData.Signal.Connection);
+                pathSignalData.Write(writer);
+            }
+        }
+
+        private void ReadPreReservedSignals(StateBinaryReader reader)
+        {
+            int count = reader.ReadInt();
+            for (int i = 0; i < count; i++)
+            {
+                RailConnection conn = reader.ReadTrackConnection() as RailConnection;
+                
+                if (ReferenceEquals(conn, null)) continue;
+                RailSignal signal = conn.Signal;
+                
+                if (signal == null || !signal.IsBuilt) continue;
+                PathSignalData signalData = GetPathSignalData(signal);
+                signalData?.Read(reader);
+            }
         }
         
         private void SetTrainsPathUpdateTimes()

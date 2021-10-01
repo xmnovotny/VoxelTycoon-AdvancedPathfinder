@@ -308,7 +308,7 @@ namespace AdvancedPathfinder.PathSignals
                 highMan.SafeHide(highlighter);
             }
 
-            _bounds.Clear();
+            _preReservedSignals.Clear();
         }
         
         private void HighlightAllPreReservedSignals()
@@ -318,7 +318,6 @@ namespace AdvancedPathfinder.PathSignals
             
             using PooledHashSet<RailSignal> signalsToHide = PooledHashSet<RailSignal>.Take();
             signalsToHide.UnionWith(_preReservedSignals.Keys);
-            RailConnectionHighlighter highMan = LazyManager<RailConnectionHighlighter>.Current;
             foreach (RailSignal signal in SimpleManager<PathSignalManager>.Current!.GetPreReservedSignalsForHighlight())
             {
                 if (!signalsToHide.Remove(signal))

@@ -369,6 +369,12 @@ namespace AdvancedPathfinder.PathSignals
                 cacheList?.Add(railToBlock);
             }
 
+            if (!ReferenceEquals(_lastEndSignalOpposite, null))
+            {
+                PathSignalData oppositeData = SimpleManager<PathSignalManager>.Current!.GetPathSignalData(_lastEndSignalOpposite);
+                if (oppositeData != null && !ReferenceEquals(oppositeData.BlockedForTrain, null)) 
+                    return false; //opposite signal at the end of the track is blocked for train in opposite direction (takes place only after loading the game)
+            }
             return true;
         }
 
