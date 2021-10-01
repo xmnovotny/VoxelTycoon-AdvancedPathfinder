@@ -82,7 +82,17 @@ namespace AdvancedPathfinder.PathSignals
             {
                 AdvancedPathfinderMod.Logger.LogError("Signal data not found");
                 return null;
-//                throw new InvalidOperationException("Signal data not found");
+            }
+
+            return signalData;
+        }
+
+        [CanBeNull]
+        internal PathSignalData TryGetPathSignalData(RailSignal signal)
+        {
+            if (!_pathSignals.TryGetValue(signal, out PathSignalData signalData))
+            {
+                return null;
             }
 
             return signalData;
@@ -482,6 +492,7 @@ namespace AdvancedPathfinder.PathSignals
                 _pathSignals.Add(signal, data);
                 _changedStates.Add(signal);
                 blockData.InboundSignals[signal] = data;
+                data.TryUpdateOppositeSignalData();
             }
         }
 
@@ -792,13 +803,17 @@ namespace AdvancedPathfinder.PathSignals
             {
 //                FileLog.Log($"Block removing {data.GetHashCode():X8}");
                 using PooledList<Train> passed = PooledList<Train>.Take(); 
-                foreach (RailSignal signal in data.InboundSignals.Keys)
+                foreach (KeyValuePair<RailSignal, PathSignalData> signalPair in data.InboundSignals)
                 {
-                    _pathSignals.Remove(signal);
-                    OpenedSignals.Remove(signal);
+                    _pathSignals.Remove(signalPair.Key);
+                    OpenedSignals.Remove(signalPair.Key);
 //                    FileLog.Log($"Removed signal {signal.GetHashCode():X8}");
-                    passed.AddRange(from pair in _passedSignals where pair.Value == signal select pair.Key);
-                    _changedStates.Add(signal);
+                    passed.AddRange(from pair in _passedSignals where pair.Value == signalPair.Key select pair.Key);
+                    _changedStates.Add(signalPair.Key);
+                    if (signalPair.Value.HasOppositeSignal)
+                    {
+                        signalPair.Value.OppositeSignalRemoved();
+                    }
                 }
                 _railBlocks.Remove(block);
                 foreach (Train train in passed)

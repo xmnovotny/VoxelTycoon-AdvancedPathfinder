@@ -19,7 +19,7 @@ namespace AdvancedPathfinder.PathSignals
 
         public Action<PathSignalData> StateChanged;
         private Train _reservedForTrain;
-        private readonly RailSignal _oppositeSignal;
+        private RailSignal _oppositeSignal;
         private PathSignalData _oppositeSignalData;
         private HashSet<Train> _preReservedForTrains;
         
@@ -38,7 +38,7 @@ namespace AdvancedPathfinder.PathSignals
             }
         }
 
-        public readonly bool HasOppositeSignal;
+        public bool HasOppositeSignal { get; private set; }
         public bool IsPreReserved => _preReservedForTrains?.Count > 0;
 
         public bool IsPreReservedForTrain(Train train)
@@ -126,6 +126,44 @@ namespace AdvancedPathfinder.PathSignals
             return signal is ChainBlockRailSignal;
         }
 
+        internal void OppositeSignalRemoved()
+        {
+            if (HasOppositeSignal)
+            {
+                _oppositeSignal = null;
+                _oppositeSignalData = null;
+                _preReservedForTrains?.Clear();
+                _preReservedForTrains = null;
+                HasOppositeSignal = false;
+            }
+        }
+
+        private void AssignOppositeSignal([NotNull] RailSignal oppositeSignal, [NotNull] PathSignalData oppoSignalData)
+        {
+            if (oppositeSignal == null) throw new ArgumentNullException(nameof(oppositeSignal));
+            if (oppoSignalData == null) throw new ArgumentNullException(nameof(oppoSignalData));
+            if (oppoSignalData == this) throw new ArgumentException("Cannot assign own data as a opposite data");
+            if (HasOppositeSignal && !ReferenceEquals(_oppositeSignal, oppositeSignal) || _oppositeSignalData != null)
+                OppositeSignalRemoved();
+            
+            _oppositeSignal = oppositeSignal;
+            _oppositeSignalData = oppoSignalData;
+            HasOppositeSignal = true;
+        }
+
+        /** try assign own signal data to the opposite signal data */
+        internal void TryUpdateOppositeSignalData()
+        {
+            if (HasOppositeSignal)
+            {
+                PathSignalData signalData = SimpleManager<PathSignalManager>.Current?.TryGetPathSignalData(_oppositeSignal);
+                if (signalData != null)
+                {
+                    signalData.AssignOppositeSignal(_oppositeSignal, this);
+                }
+            }
+        }
+
         internal void Write(StateBinaryWriter writer)
         {
             //only writing when there is a opposite signal and there is pre-reservation or is blocked for a train
@@ -148,7 +186,6 @@ namespace AdvancedPathfinder.PathSignals
 
         internal void Read(StateBinaryReader reader)
         {
-//            reader.ReadTrackConnection();
             int count = reader.ReadInt();
             for (int i = 0; i < count; i++)
             {
