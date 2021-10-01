@@ -38,6 +38,7 @@ namespace AdvancedPathfinder.PathSignals
         private readonly PathCollection _detachingPathCache = new();
         internal readonly Dictionary<RailSignal, Train> OpenedSignals = new();
         private static bool _wasInvalidPath;
+        private readonly Dictionary<Train, float> _waitUntil = new();
 
         internal IReadOnlyDictionary<RailBlock, RailBlockData> RailBlocks => _railBlocks;
         
@@ -532,6 +533,14 @@ namespace AdvancedPathfinder.PathSignals
                 Manager<RailPathfinderManager>.Current.Stats?.StopSignalOpenForTrain();
                 return ReferenceEquals(reservedTrain, train);
             }
+
+            if (_waitUntil.TryGetValue(train, out float time))
+            {
+                if (time > Time.time)
+                    return false;
+                _waitUntil.Remove(train);
+            }
+            
             PathSignalData signalData = GetPathSignalData(signal);
             if (signalData == null) //no signal data, probably network was changed, and in the next update cycle it will be available 
                 return false;
@@ -576,6 +585,9 @@ namespace AdvancedPathfinder.PathSignals
                     //connection with signal is reached - we need to call TrainConnectionReached to proper signal release after passing
                     TrainConnectionReached(train, signal.Connection);
                 }
+            } else if (result.PreReservationFailed)
+            {
+                _waitUntil[train] = Time.time + 1f;
             }
 
             Manager<RailPathfinderManager>.Current!.Stats?.StopSignalOpenForTrain();
