@@ -122,6 +122,16 @@ namespace AdvancedPathfinder.PathSignals
             }
             if (onlyPreReservation)
             {
+                if (startSignalData.IsChainSignal)
+                {
+                    if (startSignalData.HasOppositeSignal)
+                    {
+                        reserveResult.ReservedIndex = Math.Min(startIndex, path.FrontIndex);
+                        reserveResult.AddSignalToPreReserve(startSignalData);
+                    }
+                    return true; //chain signal stops pre-reservations
+                }
+
                 FindNextSignal(path, startIndex);
                 reserveResult.ReservedIndex = Math.Min(_lastPathIndex, path.FrontIndex);
                 return TryPreReserveSignal(train, path, reserveResult, startSignalData);
